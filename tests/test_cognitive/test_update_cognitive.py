@@ -18,10 +18,11 @@ class UpdateCognitiveStateTests(unittest.TestCase):
     def test_invalid_and_mutated_inputs_are_rejected(self):
         cognition = CognitiveState(0.3, 0.6, 0.7)
         situation = Situation()
+        # Deliberately violate annotations to test runtime validation.
         with self.assertRaises(TypeError):
-            update_cognitive_state(cognition, {})
+            update_cognitive_state(cognition, {})  # type: ignore[arg-type]
         with self.assertRaises(TypeError):
-            update_cognitive_state({}, situation)
+            update_cognitive_state({}, situation)  # type: ignore[arg-type]
         situation.task_complexity = 2
         with self.assertRaises(ValueError):
             update_cognitive_state(cognition, situation)

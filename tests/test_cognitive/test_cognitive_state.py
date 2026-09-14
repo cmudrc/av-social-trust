@@ -39,8 +39,9 @@ class CognitiveStateTests(unittest.TestCase):
 
     def test_car_requires_cognitive_state_and_one_driver(self):
         car = Car()
+        # Deliberately violate the annotation to test runtime validation.
         with self.assertRaises(TypeError):
-            car.add_driver(10, 0.9, 0.5, 1.0, 0.1)
+            car.add_driver(10, 0.9, 0.5, 1.0, 0.1)  # type: ignore[arg-type]
         cognition = CognitiveState(0.75, 0.6, 0.4)
         car.add_driver(10, 0.9, cognition, 1.0, 0.1)
         with self.assertRaisesRegex(Exception, "Driver already exists"):
