@@ -1,7 +1,7 @@
 import unittest
 
 from av_social_trust import Situation
-from av_social_trust.generator import generate_situations
+from av_social_trust.situation import SituationGenerator
 
 
 class SituationTests(unittest.TestCase):
@@ -10,31 +10,40 @@ class SituationTests(unittest.TestCase):
         for value in (-1, 2, 0.5, True, "1", float("nan")):
             with self.subTest(value=value):
                 with self.assertRaises(ValueError):
-                    Situation(task_complexity=value)
+                    Situation(task_complexity=value)  # type: ignore[arg-type]
         for value in (0, 1, "false", None):
             with self.subTest(value=value):
                 with self.assertRaises(TypeError):
-                    Situation(automation_available=value)
+                    Situation(automation_available=value)  # type: ignore[arg-type]
 
-    def test_synthetic_sequence_is_reproducible_and_independent(self):
-        sequence = list(generate_situations(6, block_size=2, unavailable_steps=1))
-        self.assertEqual([s.task_complexity for s in sequence], [0, 0, 1, 1, 0, 0])
-        self.assertEqual([s.automation_available for s in sequence], [False] + [True] * 5)
-        self.assertEqual(sequence, list(generate_situations(6, block_size=2, unavailable_steps=1)))
-        sequence[0].task_complexity = 1
-        self.assertEqual(sequence[1].task_complexity, 0)
-        self.assertEqual(list(generate_situations(0)), [])
+    def test_synthetic_sequence_is_reproducible_with_independent_snapshots(self):
+        generator = SituationGenerator(rng_seed=7, automation_availability_probability=0.8)
+        reference = SituationGenerator(rng_seed=7, automation_availability_probability=0.8)
+        sequence = generator.generate_series(6)
+        expected = reference.generate_series(6)
+        self.assertEqual(len(sequence), 6)
+        self.assertEqual(sequence, expected)
+        for situation in sequence:
+            self.assertIsInstance(situation, Situation)
+            situation.validate()
+
+        # Snapshots are independent even though the time series is correlated.
+        sequence[0].task_complexity = 1 - sequence[0].task_complexity
+        sequence[0].automation_available = not sequence[0].automation_available
+        self.assertEqual(sequence[1:], expected[1:])
+        sequence[-1].task_complexity = 1 - sequence[-1].task_complexity
+        sequence[-1].automation_available = not sequence[-1].automation_available
+        self.assertEqual(generator.generate(), reference.generate())
 
     def test_generator_rejects_invalid_counts(self):
-        for name in ("steps", "block_size", "unavailable_steps"):
-            for value in (-1, True, 1.5):
-                kwargs = dict(steps=2, block_size=1, unavailable_steps=0)
-                kwargs[name] = value
-                with self.subTest(name=name, value=value):
-                    with self.assertRaises(ValueError):
-                        list(generate_situations(**kwargs))
-        with self.assertRaises(ValueError):
-            list(generate_situations(2, block_size=0))
+        generator = SituationGenerator(rng_seed=42)
+        self.assertEqual(generator.generate_series(0), [])
+        for steps in (-1, True, 1.5):
+            with self.subTest(steps=steps):
+                with self.assertRaises(ValueError):
+                    generator.generate_series(steps)  # type: ignore[arg-type]
+        # Empty and rejected requests must not advance the random series.
+        self.assertEqual(generator.generate(), SituationGenerator(rng_seed=42).generate())
 
 
 if __name__ == "__main__":

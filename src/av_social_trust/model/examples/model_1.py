@@ -1,7 +1,7 @@
 import av_social_trust as av
 
 from av_social_trust.car.examples import car_1 as car
-from av_social_trust.generator import generate_situations
+from av_social_trust.situation.generator.examples import situation_generator_1 as situation_generator
 
 
 model = av.Model(
@@ -10,7 +10,8 @@ model = av.Model(
 
 
 if __name__ == "__main__":
-    for situation in generate_situations(6, block_size=2, unavailable_steps=1):
+    situations = situation_generator.generate_series(6)
+    for situation in situations:
         state = model.step(situation)
         print(
             f"Cycle {model.cycle}: complexity={situation.task_complexity}, "

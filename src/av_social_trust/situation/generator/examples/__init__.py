@@ -1,0 +1,2 @@
+from .situation_generator_1 import generator as situation_generator_1
+from .situation_generator_2 import generator as situation_generator_2
