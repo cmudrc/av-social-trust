@@ -2,7 +2,6 @@
 Updates to raw interpersonal trust and self-trust.
 
 T[i, j] is agent i's trust in agent j. The diagonal stores self-trust.
-Attention to driving events belongs to the separate experience model.
 Interpersonal trust combines opinion similarity with the target agent's
 agreement with the arithmetic mean group opinion. These scores are modeling
 choices, not comparisons against an observed ground truth.

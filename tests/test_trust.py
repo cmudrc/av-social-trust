@@ -92,10 +92,10 @@ class TrustTests(unittest.TestCase):
         )
         np.testing.assert_equal(changed_diagonal, result)
 
-    def test_car_state_integration_preserves_inputs_and_does_not_use_attention(self):
+    def test_car_state_integration_preserves_inputs(self):
         car = av.Car()
-        car.add_driver(10, 0.8, av.CognitiveState(0.0, 1.0, 0.0), 1.0, 0.5)
-        car.add_passenger(20, 0.4, av.CognitiveState(1.0, 1.0, 0.0), 0.0, 0.5)
+        car.add_driver(10, 0.8, av.CognitiveState(0.0, 1.0, 0.0), 0.5)
+        car.add_passenger(20, 0.4, av.CognitiveState(1.0, 1.0, 0.0), 0.5)
         car.connect_agents(10, 20, 0.0, 1.0, 0.0)
         state = car.to_state()
         result = trust_step(
@@ -107,15 +107,6 @@ class TrustTests(unittest.TestCase):
         )
         np.testing.assert_allclose(result, [[0.8, 0.75], [0.0, 0.2]])
         self.assertEqual(car.to_state(), state)
-        car.G.nodes[20]["attention"] = 1.0
-        new_state = car.to_state()
-        new_result = trust_step(
-            new_state["opinion_vector"], new_state["trust_matrix"],
-            new_state["learning_rate_matrix"],
-            new_state["homophilic_normative_tradeoff_matrix"],
-            new_state["connection_mask_matrix"],
-        )
-        np.testing.assert_equal(new_result, result)
 
     def test_repeated_updates_remain_bounded_without_mutating_arrays(self):
         opinions = np.array([-1.0, 0.2, 1.0])

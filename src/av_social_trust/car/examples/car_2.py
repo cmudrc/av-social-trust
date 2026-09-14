@@ -13,14 +13,12 @@ car.add_driver(
     agent_id=driver_id,
     self_trust=0.9,
     cognitive_state=cognitive_state_1,
-    attention=1,
     self_trust_learning_rate=0.1,
 )
 car.add_passenger(
     agent_id=passenger_id,
     self_trust=0.8,
     cognitive_state=cognitive_state_2,
-    attention=0.5,
     self_trust_learning_rate=0.2
 )
 

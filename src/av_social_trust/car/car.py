@@ -26,7 +26,6 @@ class Car:
         self,
         agent_id: int,
         role: str,
-        attention: float,
         self_trust: float,
         cognitive_state: CognitiveState,
         self_trust_learning_rate: float
@@ -34,7 +33,6 @@ class Car:
         if self._has_node(agent_id):
             raise ValueError(f"Agent {agent_id} already exists.")
         
-        validate_range(attention, "attention", 0.0, 1.0)
         validate_range(self_trust, "self_trust", 0.0, 1.0)
         if not isinstance(cognitive_state, CognitiveState):
             raise TypeError("cognitive_state must be a CognitiveState instance.")
@@ -43,7 +41,6 @@ class Car:
         self.G.add_node(
             agent_id,
             role=role,
-            attention=attention,
             self_trust=self_trust,
             cognitive_state=deepcopy(cognitive_state),
             self_trust_learning_rate=self_trust_learning_rate,
@@ -60,14 +57,12 @@ class Car:
         agent_id: int,
         self_trust: float,
         cognitive_state: CognitiveState,
-        attention: float,
         self_trust_learning_rate: float,
     ):
         if not self._has_driver:
             self._add_agent(
                 agent_id=agent_id,
                 role="driver",
-                attention=attention,
                 self_trust=self_trust,
                 cognitive_state=cognitive_state,
                 self_trust_learning_rate=self_trust_learning_rate
@@ -81,13 +76,11 @@ class Car:
         agent_id: int,
         self_trust: float,
         cognitive_state: CognitiveState,
-        attention: float,
         self_trust_learning_rate: float
     ):
         self._add_agent(
             agent_id=agent_id,
             role="passenger",
-            attention=attention,
             self_trust=self_trust,
             cognitive_state=cognitive_state,
             self_trust_learning_rate=self_trust_learning_rate
@@ -154,7 +147,6 @@ class Car:
         cognition = [self.G.nodes[agent]["cognitive_state"] for agent in agents]
         cognitive_states = [asdict(state) for state in cognition]
         opinion_vector = [state.opinion for state in cognition]
-        attention_vector = [self.G.nodes[agent]["attention"] for agent in agents]
         size = len(agents)
         connection_mask_matrix = [[False] * size for _ in agents]
         trust_matrix = [[0.0] * size for _ in agents]
@@ -183,7 +175,6 @@ class Car:
             "agents": deepcopy(agents),
             "cognitive_states": cognitive_states,
             "opinion_vector": deepcopy(opinion_vector),
-            "attention_vector": deepcopy(attention_vector),
             "connection_mask_matrix": deepcopy(connection_mask_matrix),
             "trust_matrix": deepcopy(trust_matrix),
             "learning_rate_matrix": deepcopy(learning_rate_matrix),
@@ -219,14 +210,12 @@ if __name__ == "__main__":
         agent_id=0,
         self_trust=0.9,
         cognitive_state=CognitiveState(0.75, 0.6, 0.4),
-        attention=1,
         self_trust_learning_rate=0.1,
     )
     car.add_passenger(
         agent_id=1,
         self_trust=0.8,
         cognitive_state=CognitiveState(0.8, 0.3, 0.2),
-        attention=0.5,
         self_trust_learning_rate=0.2
     )
     car.connect_agents(

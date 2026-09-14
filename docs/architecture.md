@@ -182,6 +182,11 @@ prior cognitive state, and history.
 
 ## 6. The observer and attention
 
+This section describes an optional replay proposal, not the active cognitive
+update. The current baseline has no agent attention parameter: every occupant
+receives the same task complexity. Distraction may be considered in a later
+perception model.
+
 For a first replay model, let `b_i[k]` be the participant's normalized solo
 automation-trust baseline at aligned observation k. The source provides
 `delta_i[k] = b_i[k+1] - b_i[k]` when that next observation becomes available.
@@ -194,8 +199,8 @@ A deliberately simple observer is:
 private_opinion_i = clip(current_opinion_i + g_i * delta_i, -1, 1)
 ```
 
-Here `g_i` is an observation gain. For synthetic agents it can initially be the
-existing attention parameter. Lower gain models incorporating less of the driving
+Here `g_i` is a proposed observation gain, not an existing agent parameter.
+Lower gain models incorporating less of the driving
 evidence; it does not mean stronger trust in other occupants. It also does not
 prevent opinion changes caused by conversation.
 
@@ -296,7 +301,6 @@ Acceptance checks for the first implementation:
 - Synthetic and recorded adapters produce the same types, scales, and ordering.
 - Solo replay with unit gain reproduces the baseline at observed points.
 - No-social and zero-evidence cases have the expected independent behavior.
-- Attention zero blocks private evidence but still permits social influence.
 - A measurement is not applied twice when simulation sampling becomes finer.
 - Missing reports and unsupported Drive A/B combinations are visible.
 - Manual-driving confidence never overwrites the social self-trust diagonal.

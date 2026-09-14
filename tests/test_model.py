@@ -11,8 +11,8 @@ from av_social_trust.decision import cognitive_to_opinion, decide_automation
 
 def make_car():
     car = av.Car()
-    car.add_passenger(20, 0.75, av.CognitiveState(1.0, 1.0, 0.0), 0.0, 1.0)
-    car.add_driver(10, 0.75, av.CognitiveState(0.0, 1.0, 0.0), 1.0, 1.0)
+    car.add_passenger(20, 0.75, av.CognitiveState(1.0, 1.0, 0.0), 1.0)
+    car.add_driver(10, 0.75, av.CognitiveState(0.0, 1.0, 0.0), 1.0)
     car.connect_agents(10, 20, 0.25, 1.0, 1.0)
     car.connect_agents(20, 10, 0.25, 1.0, 1.0)
     return car
@@ -58,7 +58,7 @@ class ModelTests(unittest.TestCase):
 
     def test_solo_driver_matches_individual_model(self):
         car = av.Car()
-        car.add_driver(7, 0.8, av.CognitiveState(0.65, 0.6, 0.4), 1.0, 0.5)
+        car.add_driver(7, 0.8, av.CognitiveState(0.65, 0.6, 0.4), 0.5)
         model = av.Model(car)
         expected = car.to_state()
         cognition = av.CognitiveState(**expected["cognitive_states"][0])
@@ -141,7 +141,7 @@ class ModelTests(unittest.TestCase):
 
     def test_workload_drives_private_preference_even_with_low_trust(self):
         car = av.Car()
-        car.add_driver(1, 1.0, av.CognitiveState(0.1, 0.9, 0.8), 1.0, 0.0)
+        car.add_driver(1, 1.0, av.CognitiveState(0.1, 0.9, 0.8), 0.0)
         model = av.Model(car)
         self.assertTrue(model.step()["automation_on"])
         model.state["cognitive_states"][0] = dict(

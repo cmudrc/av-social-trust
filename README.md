@@ -82,8 +82,7 @@ The returned state is separate from `Car`; changing it does not update the graph
 The two updates can also be called separately with `update_interpersonal_trust`
 and `update_self_trust`.
 
-Attention is reserved for observing driving events in the future experience model.
-It does not scale these social trust updates. Run a three-agent example with:
+Run a three-agent trust-update example with:
 
 ```sh
 python -m av_social_trust.trust
@@ -106,11 +105,12 @@ for trust learning. The new raw trust affects the next cycle. `model.history`
 records the private opinions, influence matrix, and resulting state for each
 completed cycle. The original `Car` remains unchanged.
 
-Personal experience and driver decisions are clearly marked TODOs in `model.py`.
-For now, private opinions equal current opinions, attention has no effect, and
-no automation-use decision is generated. You can pass driving conditions to
-`model.step(situation={...})`; they are recorded but do not yet change behavior.
-Cycles have no assigned physical duration until the individual model is connected.
+Each person's cognition evolves using synthetic affine coefficients and the shared
+task complexity. Private usage preferences are calculated from cognition before
+discussion. Automation is enabled only when available and the driver's social
+preference is positive. Pass driving conditions to `model.step(situation=...)`.
+All occupants receive the same driving conditions; distraction is not modeled.
+Cycles have no assigned physical duration until fitted parameters are integrated.
 
 Run the tests:
 

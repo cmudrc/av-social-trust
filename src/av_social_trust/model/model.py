@@ -20,7 +20,7 @@ class Model:
     Each cycle updates personal cognition, forms private usage preferences,
     runs one discussion round, learns social trust, and decides driver reliance.
     Personal cognition follows affine dynamics with synthetic coefficients.
-    Fitted participant parameters and attention effects are pending. Coefficients
+    Fitted participant parameters are pending. Coefficients
     currently apply per cycle; cycles do not yet represent calibrated seconds.
     """
 

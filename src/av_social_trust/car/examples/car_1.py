@@ -7,7 +7,6 @@ car.add_driver(
     agent_id=0,
     self_trust=0.9,
     cognitive_state=cognitive_state_1,
-    attention=1,
     self_trust_learning_rate=0.1,
 )
 

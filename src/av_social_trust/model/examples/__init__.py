@@ -1,1 +1,1 @@
-from .model_1 import model as model_1
+from .model_3 import model as model_3

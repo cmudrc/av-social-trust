@@ -72,7 +72,7 @@ def degroot_step(opinion_vector, influence_matrix) -> np.ndarray:
     Agent ordering must match between the vector and both matrix axes.
     W is validated on each call so changing trust can be used safely.
     Opinions must be finite and lie in the car model's [-1, 1] range.
-    Trust learning and attention effects are separate from this update.
+    Trust learning is separate from this update.
     A stochastic matrix alone does not guarantee eventual consensus.
     """
     opinions, matrix = _prepare_degroot(opinion_vector, influence_matrix)

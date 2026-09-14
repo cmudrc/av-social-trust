@@ -23,8 +23,8 @@ class CognitiveStateTests(unittest.TestCase):
     def test_each_node_and_snapshot_owns_its_cognitive_state(self):
         cognition = CognitiveState(0.75, 1.0, 0.0)
         car = Car()
-        car.add_passenger(20, 0.8, cognition, 0.5, 0.2)
-        car.add_driver(10, 0.9, cognition, 1.0, 0.1)
+        car.add_passenger(20, 0.8, cognition, 0.2)
+        car.add_driver(10, 0.9, cognition, 0.1)
         cognition.automation_trust = 0.0
         self.assertEqual(car.to_state()["opinion_vector"], [0.25, 0.25])
 
@@ -41,11 +41,11 @@ class CognitiveStateTests(unittest.TestCase):
         car = Car()
         # Deliberately violate the annotation to test runtime validation.
         with self.assertRaises(TypeError):
-            car.add_driver(10, 0.9, 0.5, 1.0, 0.1)  # type: ignore[arg-type]
+            car.add_driver(10, 0.9, 0.5, 0.1)  # type: ignore[arg-type]
         cognition = CognitiveState(0.75, 0.6, 0.4)
-        car.add_driver(10, 0.9, cognition, 1.0, 0.1)
+        car.add_driver(10, 0.9, cognition, 0.1)
         with self.assertRaisesRegex(Exception, "Driver already exists"):
-            car.add_driver(20, 0.9, cognition, 1.0, 0.1)
+            car.add_driver(20, 0.9, cognition, 0.1)
 
 
 if __name__ == "__main__":

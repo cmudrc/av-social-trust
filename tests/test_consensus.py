@@ -14,8 +14,8 @@ from av_social_trust.consensus import (
 class ConsensusTests(unittest.TestCase):
     def test_exported_state_preserves_raw_trust_and_agent_order(self):
         car = av.Car()
-        car.add_passenger(20, 0.5, av.CognitiveState(0.0, 1.0, 0.0), 1.0, 0.1)
-        car.add_driver(10, 0.2, av.CognitiveState(1.0, 1.0, 0.0), 1.0, 0.1)
+        car.add_passenger(20, 0.5, av.CognitiveState(0.0, 1.0, 0.0), 0.1)
+        car.add_driver(10, 0.2, av.CognitiveState(1.0, 1.0, 0.0), 0.1)
         car.connect_agents(10, 20, 0.6, 0.1, 0.5)
         state = car.to_state()
         weights = normalize_trust_matrix(state["trust_matrix"])
