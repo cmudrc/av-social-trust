@@ -1,13 +1,15 @@
 import unittest
 
-from av_social_trust.car import Car, CognitiveState
+from av_social_trust import Car, CognitiveState
 
 
 class CognitiveStateTests(unittest.TestCase):
-    def test_opinion_uses_automation_trust(self):
-        for trust, opinion in ((0.0, -1.0), (0.5, 0.0), (1.0, 1.0)):
+    def test_private_opinion_uses_all_three_cognitive_components(self):
+        for trust, opinion in ((0.0, -0.5), (0.5, 0.0), (1.0, 0.5)):
             with self.subTest(trust=trust):
-                self.assertEqual(CognitiveState(trust, 0.6, 0.4).opinion, opinion)
+                self.assertEqual(CognitiveState(trust, 1.0, 0.0).opinion, opinion)
+        self.assertAlmostEqual(CognitiveState(0.0, 0.2, 0.0).opinion, 0.3)
+        self.assertAlmostEqual(CognitiveState(0.0, 1.0, 0.9).opinion, 0.4)
 
     def test_invalid_cognitive_values(self):
         for name in ("automation_trust", "perceived_risk", "workload"):
@@ -19,21 +21,21 @@ class CognitiveStateTests(unittest.TestCase):
                         CognitiveState(**values)
 
     def test_each_node_and_snapshot_owns_its_cognitive_state(self):
-        cognition = CognitiveState(0.75, 0.6, 0.4)
+        cognition = CognitiveState(0.75, 1.0, 0.0)
         car = Car()
         car.add_passenger(20, 0.8, cognition, 0.5, 0.2)
         car.add_driver(10, 0.9, cognition, 1.0, 0.1)
         cognition.automation_trust = 0.0
-        self.assertEqual(car.to_state()["opinion_vector"], [0.5, 0.5])
+        self.assertEqual(car.to_state()["opinion_vector"], [0.25, 0.25])
 
         car.G.nodes[20]["cognitive_state"].automation_trust = 0.25
         snapshot = car.to_state()
         self.assertEqual(snapshot["agents"], [10, 20])
-        self.assertEqual(snapshot["opinion_vector"], [0.5, -0.5])
+        self.assertEqual(snapshot["opinion_vector"], [0.25, -0.25])
         self.assertEqual(snapshot["cognitive_states"][0]["automation_trust"], 0.75)
         self.assertEqual(snapshot["cognitive_states"][1]["automation_trust"], 0.25)
         snapshot["cognitive_states"][0]["perceived_risk"] = 0.0
-        self.assertEqual(car.G.nodes[10]["cognitive_state"].perceived_risk, 0.6)
+        self.assertEqual(car.G.nodes[10]["cognitive_state"].perceived_risk, 1.0)
 
     def test_car_requires_cognitive_state_and_one_driver(self):
         car = Car()

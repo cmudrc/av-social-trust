@@ -14,8 +14,8 @@ from av_social_trust.consensus import (
 class ConsensusTests(unittest.TestCase):
     def test_exported_state_preserves_raw_trust_and_agent_order(self):
         car = av.Car()
-        car.add_passenger(20, 0.5, av.CognitiveState(0.0, 0.6, 0.4), 1.0, 0.1)
-        car.add_driver(10, 0.2, av.CognitiveState(1.0, 0.6, 0.4), 1.0, 0.1)
+        car.add_passenger(20, 0.5, av.CognitiveState(0.0, 1.0, 0.0), 1.0, 0.1)
+        car.add_driver(10, 0.2, av.CognitiveState(1.0, 1.0, 0.0), 1.0, 0.1)
         car.connect_agents(10, 20, 0.6, 0.1, 0.5)
         state = car.to_state()
         weights = normalize_trust_matrix(state["trust_matrix"])
@@ -23,10 +23,10 @@ class ConsensusTests(unittest.TestCase):
         self.assertEqual(state["agents"], [10, 20])
         np.testing.assert_allclose(weights, [[0.25, 0.75], [0.0, 1.0]])
         np.testing.assert_allclose(
-            degroot_step(state["opinion_vector"], weights), [-0.5, -1.0]
+            degroot_step(state["opinion_vector"], weights), [-0.25, -0.5]
         )
         self.assertEqual(state["trust_matrix"], [[0.2, 0.6], [0.0, 0.5]])
-        self.assertEqual(state["opinion_vector"], [1.0, -1.0])
+        self.assertEqual(state["opinion_vector"], [0.5, -0.5])
 
     def test_zero_trust_retains_opinion(self):
         weights = normalize_trust_matrix([[0.0, 0.0], [0.4, 0.6]])

@@ -94,8 +94,8 @@ class TrustTests(unittest.TestCase):
 
     def test_car_state_integration_preserves_inputs_and_does_not_use_attention(self):
         car = av.Car()
-        car.add_driver(10, 0.8, av.CognitiveState(0.0, 0.6, 0.4), 1.0, 0.5)
-        car.add_passenger(20, 0.4, av.CognitiveState(1.0, 0.6, 0.4), 0.0, 0.5)
+        car.add_driver(10, 0.8, av.CognitiveState(0.0, 1.0, 0.0), 1.0, 0.5)
+        car.add_passenger(20, 0.4, av.CognitiveState(1.0, 1.0, 0.0), 0.0, 0.5)
         car.connect_agents(10, 20, 0.0, 1.0, 0.0)
         state = car.to_state()
         result = trust_step(
@@ -105,7 +105,7 @@ class TrustTests(unittest.TestCase):
             state["homophilic_normative_tradeoff_matrix"],
             state["connection_mask_matrix"],
         )
-        np.testing.assert_allclose(result, [[0.8, 0.5], [0.0, 0.2]])
+        np.testing.assert_allclose(result, [[0.8, 0.75], [0.0, 0.2]])
         self.assertEqual(car.to_state(), state)
         car.G.nodes[20]["attention"] = 1.0
         new_state = car.to_state()

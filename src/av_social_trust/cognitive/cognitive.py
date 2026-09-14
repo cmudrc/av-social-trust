@@ -17,8 +17,13 @@ class CognitiveState:
 
     @property
     def opinion(self) -> float:
-        """Express automation trust on the social model's [-1, 1] scale."""
-        return 2.0 * self.automation_trust - 1.0
+        """Private usage preference using the decision rule's synthetic defaults.
+
+        Socially updated opinions are stored separately in the model state.
+        """
+        from av_social_trust.decision import cognitive_to_opinion
+
+        return cognitive_to_opinion(self)
 
 
 if __name__ == "__main__":

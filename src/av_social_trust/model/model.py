@@ -1,10 +1,15 @@
-"""A simple simulation loop combining opinion consensus and trust learning."""
+"""Personal cognition, social usage preferences, trust learning, and reliance."""
 
 from copy import deepcopy
+from dataclasses import asdict
 from numbers import Integral
 
 from av_social_trust.car import Car
+from av_social_trust.cognitive import CognitiveState
 from av_social_trust.consensus import degroot_step, normalize_trust_matrix
+from av_social_trust.decision import cognitive_to_opinion, decide_automation
+from av_social_trust.observe import observe
+from av_social_trust.situation import Situation
 from av_social_trust.trust import trust_step
 
 
@@ -12,9 +17,10 @@ class Model:
     """
     Run a simulation using an independent copy of a Car's initial state.
 
-    Each cycle performs one social opinion update and one trust update.
-    Personal experience, attention effects, and driving decisions are not
-    implemented yet. Cycle numbers do not imply a physical timestep.
+    Each cycle updates personal cognition, forms private usage preferences,
+    runs one discussion round, learns social trust, and decides driver reliance.
+    The personal update currently preserves cognition; fitted individual dynamics
+    and attention effects are pending. Cycle numbers have no physical timestep.
     """
 
     def __init__(
@@ -27,27 +33,38 @@ class Model:
 
     def step(
             self,
-            situation: dict | None = None
+            situation: Situation | dict | None = None
         ) -> dict:
         """
         Advance one cycle and return an independent copy of the new state.
 
-        `situation` will supply driving conditions to the personal model.
-        For now, it is only recorded in history. The original Car is unchanged.
+        A missing situation means low complexity with automation available.
+        Dictionaries are accepted for existing callers. Availability constrains
+        the final decision; task complexity awaits the personal model. The
+        original Car is unchanged, and failed updates do not commit a cycle.
         """
+        if situation is None:
+            situation = Situation()
+        elif isinstance(situation, dict):
+            situation = Situation(**situation)
+        elif isinstance(situation, Situation):
+            situation = Situation(**asdict(situation))
+        else:
+            raise TypeError("situation must be a Situation, dict, or None.")
 
         old_trust = self.state["trust_matrix"]
 
-        # Observation: update personal opinions through driving experience.
-        # TODO: Call Sibi's cognitive model here, using the situation and
-        # each participant's state/parameters. Convert its automation trust
-        # to our [-1, 1] opinion scale. For now, experience changes nothing.
-        private_opinions = deepcopy(self.state["opinion_vector"])
-        # private_opinions = update_personal_opinions(self.state, situation)
+        # Observe separately for each person; the Sibi integration is commented
+        # in observe.py until the individual model and its parameters arrive.
+        next_cognition = [
+            observe(CognitiveState(**values), situation)
+            for values in self.state["cognitive_states"]
+        ]
+        # Fresh private preferences use all three cognitive components. The
+        # decision rule's default thresholds are synthetic sanity-check values.
+        private_opinions = [cognitive_to_opinion(state) for state in next_cognition]
 
         # Discussion: update opinions through social influence using the OLD trust.
-        # faster implementation: only one step of DeGroot.
-        # to make it more comphrehensible, import and use `run_degroot` from consensus.py instead of `degroot_step`.
         influence_matrix = normalize_trust_matrix(old_trust)
         next_opinions = degroot_step(private_opinions, influence_matrix)
 
@@ -63,26 +80,25 @@ class Model:
             connection_mask_matrix=self.state["connection_mask_matrix"],
         )
 
-        # Decision: decide whether the DRIVER uses automation.
-        # TODO: Apply Sibi's decision rule after social influence, using the
-        # driver's updated automation trust, risk, and workload. Respect
-        # automation availability. No driving decision is simulated yet.
+        # Car snapshots are driver-first. Passengers influence the preference,
+        # but only the driver decides the shared vehicle's automation mode.
+        automation_on = decide_automation(
+            next_opinions[0], automation_available=situation.automation_available
+        )
 
         # Commit: adopt the new opinions and raw trust together.
         next_state = deepcopy(self.state)
+        next_state["cognitive_states"] = [asdict(state) for state in next_cognition]
         next_state["opinion_vector"] = next_opinions.tolist()
-        for cognition, opinion in zip(
-            next_state["cognitive_states"], next_state["opinion_vector"]
-        ):
-            cognition["automation_trust"] = (opinion + 1.0) / 2.0
         next_state["trust_matrix"] = next_trust.tolist()
+        next_state["automation_on"] = automation_on
         self.state = next_state
         self.cycle += 1
 
         # History: save a snapshot so later cycles cannot overwrite earlier results.
         self.history.append({
             "cycle": self.cycle,
-            "situation": deepcopy(situation),
+            "situation": asdict(situation),
             "private_opinion_vector": deepcopy(private_opinions),
             "influence_matrix": influence_matrix.tolist(),
             "state": deepcopy(self.state),

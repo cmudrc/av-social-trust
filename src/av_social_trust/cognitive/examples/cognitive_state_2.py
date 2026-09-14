@@ -1,6 +1,6 @@
 """Synthetic cognitive state with high automation trust and low workload."""
 
-from av_social_trust.car import CognitiveState
+from av_social_trust.cognitive import CognitiveState
 
 
 cognitive_state = CognitiveState(
