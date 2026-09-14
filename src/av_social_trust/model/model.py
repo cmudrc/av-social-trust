@@ -3,7 +3,9 @@
 from copy import deepcopy
 from numbers import Integral
 
-from ..car import Car
+from av_social_trust.car import Car
+from av_social_trust.consensus import degroot_step, normalize_trust_matrix
+from av_social_trust.trust import trust_step
 
 
 class Model:
@@ -23,30 +25,33 @@ class Model:
         self.cycle = 0
         self.history = []
 
-    def step(self, situation: dict | None = None) -> dict:
+    def step(
+            self,
+            situation: dict | None = None
+        ) -> dict:
         """
         Advance one cycle and return an independent copy of the new state.
 
         `situation` will supply driving conditions to the personal model.
         For now, it is only recorded in history. The original Car is unchanged.
         """
-        from ..consensus import degroot_step, normalize_trust_matrix
-        from ..trust import trust_step
 
         old_trust = self.state["trust_matrix"]
 
-        # 1. Update personal opinions through driving experience.
+        # Observation: update personal opinions through driving experience.
         # TODO: Call Sibi's cognitive model here, using the situation and
         # each participant's state/parameters. Convert its automation trust
         # to our [-1, 1] opinion scale. For now, experience changes nothing.
         private_opinions = deepcopy(self.state["opinion_vector"])
         # private_opinions = update_personal_opinions(self.state, situation)
 
-        # 2. Update opinions through social influence using the OLD trust.
+        # Discussion: update opinions through social influence using the OLD trust.
+        # faster implementation: only one step of DeGroot.
+        # to make it more comphrehensible, import and use `run_degroot` from consensus.py instead of `degroot_step`.
         influence_matrix = normalize_trust_matrix(old_trust)
         next_opinions = degroot_step(private_opinions, influence_matrix)
 
-        # 3. Learn interpersonal and self-trust from the PRIVATE opinions.
+        # Trust learning: interpersonal and self-trust from the PRIVATE opinions.
         # These new trust values affect the next cycle, not the current one.
         next_trust = trust_step(
             opinion_vector=private_opinions,
@@ -58,19 +63,19 @@ class Model:
             connection_mask_matrix=self.state["connection_mask_matrix"],
         )
 
-        # 4. Decide whether the DRIVER uses automation.
+        # Decision: decide whether the DRIVER uses automation.
         # TODO: Apply Sibi's decision rule after social influence, using the
         # driver's updated automation trust, risk, and workload. Respect
         # automation availability. No driving decision is simulated yet.
 
-        # 5. Commit the new opinions and raw trust together.
+        # Commit: adopt the new opinions and raw trust together.
         next_state = deepcopy(self.state)
         next_state["opinion_vector"] = next_opinions.tolist()
         next_state["trust_matrix"] = next_trust.tolist()
         self.state = next_state
         self.cycle += 1
 
-        # 6. Save a snapshot so later cycles cannot overwrite earlier results.
+        # History: save a snapshot so later cycles cannot overwrite earlier results.
         self.history.append({
             "cycle": self.cycle,
             "situation": deepcopy(situation),
