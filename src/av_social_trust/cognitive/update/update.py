@@ -1,37 +1,41 @@
-"""Personal cognitive update boundary for the future individual model."""
+"""Personal cognitive update using synthetic affine model parameters."""
 
-from dataclasses import asdict
-
-from av_social_trust.cognitive import CognitiveState
+from av_social_trust.cognitive.state import CognitiveState
 from av_social_trust.situation import Situation
 
+from av_social_trust.cognitive.update import individual_model
+from av_social_trust.cognitive.update.parameters import CognitiveParameters, SYNTHETIC_PARAMETERS
 
-def update_cognitive_state(cognitive_state: CognitiveState, situation: Situation) -> CognitiveState:
+
+def update_cognitive_state(
+    cognitive_state: CognitiveState,
+    situation: Situation,
+    *,
+    parameters: CognitiveParameters = SYNTHETIC_PARAMETERS,
+) -> CognitiveState:
     """
-    Return an independent, unchanged cognitive state for now.
+    Return the next cognitive state using the affine equations in Sibi's paper.
 
     The driving situation is shared, but this function is called separately
-    for each person. Task complexity has no cognitive effect until an individual
-    update is supplied. No measurements or participant coefficients are invented.
+    for each person. Defaults are explicitly synthetic coefficients, not fitted
+    measurements. Supply participant-specific parameters when available. Cognitive
+    state carries forward between cycles; social preferences do not overwrite it.
     """
-    if not isinstance(cognitive_state, CognitiveState):
-        raise TypeError("cognitive_state must be a CognitiveState instance.")
-    if not isinstance(situation, Situation):
-        raise TypeError("situation must be a Situation instance.")
-    situation.validate()
-    next_state = CognitiveState(**asdict(cognitive_state))
-
-    # TODO: Connect Sibi's forward cognitive update once his code, participant
-    # coefficients, input units, timestep, and boundary handling are available.
-    # Proposed interface only; this is not a supplied API:
-    # next_state = individual_model.advance_cognition(
-    #     cognition=next_state,
-    #     context=situation,
-    #     parameters=participant_parameters,
-    # )
+    next_state = individual_model.advance_cognition(
+        cognition=cognitive_state,
+        context=situation,
+        parameters=parameters,
+    )
     return next_state
 
 
 if __name__ == "__main__":
-    cognition = CognitiveState(automation_trust=0.75, perceived_risk=0.6, workload=0.4)
-    print(update_cognitive_state(cognition, Situation(task_complexity=1)))
+    cognition = CognitiveState(
+        automation_trust=0.75,
+        perceived_risk=0.6,
+        workload=0.4
+    )
+    print("Initial:", cognition)
+    for cycle in range(1, 6):
+        cognition = update_cognitive_state(cognition, Situation(task_complexity=1))
+        print(f"Cycle {cycle}:", cognition)

@@ -1,9 +1,12 @@
 import unittest
 from copy import deepcopy
+from dataclasses import asdict
 
 import numpy as np
 
 import av_social_trust as av
+from av_social_trust.cognitive import update_cognitive_state
+from av_social_trust.decision import cognitive_to_opinion, decide_automation
 
 
 def make_car():
@@ -22,36 +25,48 @@ class ModelTests(unittest.TestCase):
         model = av.Model(car)
         result = model.step()
 
-        # Private opinions [-0.5, 0.5] are mixed with 75% self-influence.
-        np.testing.assert_allclose(result["opinion_vector"], [-0.25, 0.25])
-        self.assertEqual(result["cognitive_states"], original["cognitive_states"])
+        # Synthetic cognition produces private opinions [-0.42, 0.48].
+        # Old social trust still supplies 75% self-influence in this cycle.
+        np.testing.assert_allclose(result["opinion_vector"], [-0.195, 0.255])
+        np.testing.assert_allclose(
+            [list(state.values()) for state in result["cognitive_states"]],
+            [[0.08, 0.92, 0.02], [0.98, 0.92, 0.02]],
+        )
         self.assertFalse(result["automation_on"])
-        # Private disagreement gives homophilic trust 0.5, rather than 0.75
-        # from the social opinions. Self-trust uses OLD incoming trust 0.25.
-        np.testing.assert_allclose(result["trust_matrix"], [[0.25, 0.5], [0.5, 0.25]])
+        # Private disagreement gives homophilic trust 0.55, rather than 0.775
+        # from social opinions. Self-trust uses OLD incoming trust 0.25.
+        np.testing.assert_allclose(result["trust_matrix"], [[0.25, 0.55], [0.55, 0.25]])
         self.assertEqual(result["agents"], [10, 20])
         self.assertEqual(car.to_state(), original)
         self.assertEqual(model.cycle, 1)
-        self.assertEqual(model.history[0]["private_opinion_vector"], [-0.5, 0.5])
+        np.testing.assert_allclose(model.history[0]["private_opinion_vector"], [-0.42, 0.48])
 
-        # Fresh private opinions remain [-0.5, 0.5]; new social trust now puts
-        # more weight on the other person and flips the driver's decision.
+        # The next cognitive update uses prior COGNITION, not social opinion.
+        # New social trust now flips the driver's decision.
         result = model.step()
         np.testing.assert_allclose(
-            model.history[1]["influence_matrix"], [[1 / 3, 2 / 3], [2 / 3, 1 / 3]]
+            model.history[1]["influence_matrix"], [[0.3125, 0.6875], [0.6875, 0.3125]]
         )
-        self.assertEqual(model.history[1]["private_opinion_vector"], [-0.5, 0.5])
-        np.testing.assert_allclose(result["opinion_vector"], [1 / 6, -1 / 6])
+        np.testing.assert_allclose(model.history[1]["private_opinion_vector"], [-0.348, 0.462])
+        np.testing.assert_allclose(result["opinion_vector"], [0.208875, -0.094875])
         self.assertTrue(result["automation_on"])
-        self.assertEqual(result["cognitive_states"], original["cognitive_states"])
-        np.testing.assert_allclose(result["trust_matrix"], [[0.5, 0.5], [0.5, 0.5]])
+        np.testing.assert_allclose(
+            [list(state.values()) for state in result["cognitive_states"]],
+            [[0.152, 0.848, 0.038], [0.962, 0.848, 0.038]],
+        )
+        np.testing.assert_allclose(result["trust_matrix"], [[0.55, 0.595], [0.595, 0.55]])
 
-    def test_solo_driver_is_unchanged_without_personal_update(self):
+    def test_solo_driver_matches_individual_model(self):
         car = av.Car()
         car.add_driver(7, 0.8, av.CognitiveState(0.65, 0.6, 0.4), 1.0, 0.5)
         model = av.Model(car)
         expected = car.to_state()
-        expected["automation_on"] = True
+        cognition = av.CognitiveState(**expected["cognitive_states"][0])
+        for _ in range(3):
+            cognition = update_cognitive_state(cognition, av.Situation())
+        expected["cognitive_states"] = [asdict(cognition)]
+        expected["opinion_vector"] = [cognitive_to_opinion(cognition)]
+        expected["automation_on"] = decide_automation(expected["opinion_vector"][0])
         self.assertEqual(model.run(3), expected)
         self.assertEqual(model.cycle, 3)
         self.assertEqual([entry["cycle"] for entry in model.history], [1, 2, 3])
@@ -78,10 +93,9 @@ class ModelTests(unittest.TestCase):
         result["trust_matrix"][0][0] = 0.9
         result["agents"][0] = 999
         result["cognitive_states"][0]["automation_trust"] = 0.9
-        self.assertEqual(model.state["opinion_vector"], [-0.25, 0.25])
+        self.assertEqual(model.state, saved["state"])
         self.assertEqual(model.state["trust_matrix"][0][0], 0.25)
         self.assertEqual(model.state["agents"], [10, 20])
-        self.assertEqual(model.state["cognitive_states"][0]["automation_trust"], 0.0)
         self.assertEqual(model.history[0]["situation"]["task_complexity"], 1)
         model.step()
         self.assertEqual(model.history[0], saved)
@@ -125,16 +139,16 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(enabled["cognitive_states"], disabled["cognitive_states"])
         self.assertFalse(unavailable.history[-1]["situation"]["automation_available"])
 
-    def test_workload_drives_private_preference_and_zero_is_off(self):
+    def test_workload_drives_private_preference_even_with_low_trust(self):
         car = av.Car()
         car.add_driver(1, 1.0, av.CognitiveState(0.1, 0.9, 0.8), 1.0, 0.0)
         model = av.Model(car)
         self.assertTrue(model.step()["automation_on"])
         model.state["cognitive_states"][0] = dict(
-            automation_trust=0.5, perceived_risk=0.5, workload=0.5
+            automation_trust=0.1, perceived_risk=0.9, workload=0.0
         )
         result = model.step()
-        self.assertEqual(result["opinion_vector"], [0.0])
+        self.assertLess(result["opinion_vector"][0], 0.0)
         self.assertFalse(result["automation_on"])
 
     def test_invalid_situation_does_not_commit(self):

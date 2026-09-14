@@ -19,8 +19,9 @@ class Model:
 
     Each cycle updates personal cognition, forms private usage preferences,
     runs one discussion round, learns social trust, and decides driver reliance.
-    The personal update currently preserves cognition; fitted individual dynamics
-    and attention effects are pending. Cycle numbers have no physical timestep.
+    Personal cognition follows affine dynamics with synthetic coefficients.
+    Fitted participant parameters and attention effects are pending. Coefficients
+    currently apply per cycle; cycles do not yet represent calibrated seconds.
     """
 
     def __init__(
@@ -40,7 +41,7 @@ class Model:
 
         A missing situation means low complexity with automation available.
         Dictionaries are accepted for existing callers. Availability constrains
-        the final decision; task complexity awaits the personal model. The
+        the final decision; task complexity drives the synthetic personal update. The
         original Car is unchanged, and failed updates do not commit a cycle.
         """
         if situation is None:
@@ -54,8 +55,8 @@ class Model:
 
         old_trust = self.state["trust_matrix"]
 
-        # Observe separately for each person; the Sibi integration is commented
-        # in observe.py until the individual model and its parameters arrive.
+        # Advance each person's cognition using synthetic affine dynamics.
+        # TODO: Supply participant-specific coefficients once available.
         next_cognition = [
             update_cognitive_state(CognitiveState(**values), situation)
             for values in self.state["cognitive_states"]
