@@ -1,5 +1,8 @@
 from copy import deepcopy
+from dataclasses import asdict
 import networkx as nx
+
+from av_social_trust.cognitive import CognitiveState
 
 
 def validate_range(
@@ -25,7 +28,7 @@ class Car:
         role: str,
         attention: float,
         self_trust: float,
-        opinion: float,
+        cognitive_state: CognitiveState,
         self_trust_learning_rate: float
     ):
         if self._has_node(agent_id):
@@ -33,7 +36,8 @@ class Car:
         
         validate_range(attention, "attention", 0.0, 1.0)
         validate_range(self_trust, "self_trust", 0.0, 1.0)
-        validate_range(opinion, "initial_opinion", -1.0, 1.0)
+        if not isinstance(cognitive_state, CognitiveState):
+            raise TypeError("cognitive_state must be a CognitiveState instance.")
         validate_range(self_trust_learning_rate, "self_trust_learning_rate", 0.0, 1.0)
 
         self.G.add_node(
@@ -41,7 +45,7 @@ class Car:
             role=role,
             attention=attention,
             self_trust=self_trust,
-            opinion=opinion,
+            cognitive_state=deepcopy(cognitive_state),
             self_trust_learning_rate=self_trust_learning_rate,
         )
 
@@ -55,7 +59,7 @@ class Car:
         self,
         agent_id: int,
         self_trust: float,
-        opinion: float,
+        cognitive_state: CognitiveState,
         attention: float,
         self_trust_learning_rate: float,
     ):
@@ -65,9 +69,10 @@ class Car:
                 role="driver",
                 attention=attention,
                 self_trust=self_trust,
-                opinion=opinion,
+                cognitive_state=cognitive_state,
                 self_trust_learning_rate=self_trust_learning_rate
             )
+            self._has_driver = True
         else:
             raise Exception("Driver already exists in the car.")
 
@@ -75,7 +80,7 @@ class Car:
         self,
         agent_id: int,
         self_trust: float,
-        opinion: float,
+        cognitive_state: CognitiveState,
         attention: float,
         self_trust_learning_rate: float
     ):
@@ -84,7 +89,7 @@ class Car:
             role="passenger",
             attention=attention,
             self_trust=self_trust,
-            opinion=opinion,
+            cognitive_state=cognitive_state,
             self_trust_learning_rate=self_trust_learning_rate
         )
 
@@ -141,10 +146,14 @@ class Car:
         not row-normalized. Diagonal connections represent self-trust;
         their tradeoff entries are unused and remain zero. Social appraisal
         averages must exclude the diagonal and any masked-out connections.
+        Cognitive states use the same agent order; opinions are derived from
+        automation trust rather than stored separately on graph nodes.
         """
         driver = self.driver
         agents = self.agents
-        opinion_vector = [self.G.nodes[agent]["opinion"] for agent in agents]
+        cognition = [self.G.nodes[agent]["cognitive_state"] for agent in agents]
+        cognitive_states = [asdict(state) for state in cognition]
+        opinion_vector = [state.opinion for state in cognition]
         attention_vector = [self.G.nodes[agent]["attention"] for agent in agents]
         size = len(agents)
         connection_mask_matrix = [[False] * size for _ in agents]
@@ -172,6 +181,7 @@ class Car:
         return {
             "driver": deepcopy(driver),
             "agents": deepcopy(agents),
+            "cognitive_states": cognitive_states,
             "opinion_vector": deepcopy(opinion_vector),
             "attention_vector": deepcopy(attention_vector),
             "connection_mask_matrix": deepcopy(connection_mask_matrix),
@@ -208,14 +218,14 @@ if __name__ == "__main__":
     car.add_driver(
         agent_id=0,
         self_trust=0.9,
-        opinion=0.5,
+        cognitive_state=CognitiveState(0.75, 0.6, 0.4),
         attention=1,
         self_trust_learning_rate=0.1,
     )
     car.add_passenger(
         agent_id=1,
         self_trust=0.8,
-        opinion=0.6,
+        cognitive_state=CognitiveState(0.8, 0.3, 0.2),
         attention=0.5,
         self_trust_learning_rate=0.2
     )

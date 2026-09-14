@@ -71,6 +71,10 @@ class Model:
         # Commit: adopt the new opinions and raw trust together.
         next_state = deepcopy(self.state)
         next_state["opinion_vector"] = next_opinions.tolist()
+        for cognition, opinion in zip(
+            next_state["cognitive_states"], next_state["opinion_vector"]
+        ):
+            cognition["automation_trust"] = (opinion + 1.0) / 2.0
         next_state["trust_matrix"] = next_trust.tolist()
         self.state = next_state
         self.cycle += 1

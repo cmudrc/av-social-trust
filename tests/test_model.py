@@ -8,8 +8,8 @@ import av_social_trust as av
 
 def make_car():
     car = av.Car()
-    car.add_passenger(20, 0.5, 1.0, 0.0, 1.0)
-    car.add_driver(10, 0.5, -1.0, 1.0, 1.0)
+    car.add_passenger(20, 0.5, av.CognitiveState(1.0, 0.3, 0.2), 0.0, 1.0)
+    car.add_driver(10, 0.5, av.CognitiveState(0.0, 0.6, 0.4), 1.0, 1.0)
     car.connect_agents(10, 20, 0.5, 1.0, 1.0)
     car.connect_agents(20, 10, 0.5, 1.0, 1.0)
     return car
@@ -24,6 +24,10 @@ class ModelTests(unittest.TestCase):
 
         # Old trust gives equal influence, so opposite opinions average to zero.
         np.testing.assert_allclose(result["opinion_vector"], [0.0, 0.0])
+        self.assertEqual(result["cognitive_states"], [
+            {"automation_trust": 0.5, "perceived_risk": 0.6, "workload": 0.4},
+            {"automation_trust": 0.5, "perceived_risk": 0.3, "workload": 0.2},
+        ])
         # Trust learning sees the PRIVATE disagreement, so off-diagonal trust
         # becomes zero. Learning from post-consensus opinions would produce one.
         np.testing.assert_allclose(result["trust_matrix"], [[0.5, 0.0], [0.0, 0.5]])
@@ -39,7 +43,7 @@ class ModelTests(unittest.TestCase):
 
     def test_solo_driver_is_unchanged_without_personal_update(self):
         car = av.Car()
-        car.add_driver(7, 0.8, 0.3, 1.0, 0.5)
+        car.add_driver(7, 0.8, av.CognitiveState(0.65, 0.6, 0.4), 1.0, 0.5)
         model = av.Model(car)
         self.assertEqual(model.run(3), car.to_state())
         self.assertEqual(model.cycle, 3)
@@ -66,9 +70,11 @@ class ModelTests(unittest.TestCase):
         result["opinion_vector"][0] = 0.9
         result["trust_matrix"][0][0] = 0.9
         result["agents"][0] = 999
+        result["cognitive_states"][0]["automation_trust"] = 0.9
         self.assertEqual(model.state["opinion_vector"], [0.0, 0.0])
         self.assertEqual(model.state["trust_matrix"][0][0], 0.5)
         self.assertEqual(model.state["agents"], [10, 20])
+        self.assertEqual(model.state["cognitive_states"][0]["automation_trust"], 0.5)
         model.step()
         self.assertEqual(model.history[0], saved)
 

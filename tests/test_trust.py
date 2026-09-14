@@ -94,8 +94,8 @@ class TrustTests(unittest.TestCase):
 
     def test_car_state_integration_preserves_inputs_and_does_not_use_attention(self):
         car = av.Car()
-        car.add_driver(10, 0.8, -1.0, 1.0, 0.5)
-        car.add_passenger(20, 0.4, 1.0, 0.0, 0.5)
+        car.add_driver(10, 0.8, av.CognitiveState(0.0, 0.6, 0.4), 1.0, 0.5)
+        car.add_passenger(20, 0.4, av.CognitiveState(1.0, 0.6, 0.4), 0.0, 0.5)
         car.connect_agents(10, 20, 0.0, 1.0, 0.0)
         state = car.to_state()
         result = trust_step(
