@@ -8,7 +8,7 @@ from av_social_trust.car import Car
 from av_social_trust.cognitive import CognitiveState
 from av_social_trust.consensus import degroot_step, normalize_trust_matrix
 from av_social_trust.decision import cognitive_to_opinion, decide_automation
-from av_social_trust.observe import observe
+from av_social_trust.cognitive import update_cognitive_state
 from av_social_trust.situation import Situation
 from av_social_trust.trust import trust_step
 
@@ -57,7 +57,7 @@ class Model:
         # Observe separately for each person; the Sibi integration is commented
         # in observe.py until the individual model and its parameters arrive.
         next_cognition = [
-            observe(CognitiveState(**values), situation)
+            update_cognitive_state(CognitiveState(**values), situation)
             for values in self.state["cognitive_states"]
         ]
         # Fresh private preferences use all three cognitive components. The

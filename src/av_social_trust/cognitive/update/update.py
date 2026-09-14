@@ -6,7 +6,7 @@ from av_social_trust.cognitive import CognitiveState
 from av_social_trust.situation import Situation
 
 
-def observe(cognitive_state: CognitiveState, situation: Situation) -> CognitiveState:
+def update_cognitive_state(cognitive_state: CognitiveState, situation: Situation) -> CognitiveState:
     """
     Return an independent, unchanged cognitive state for now.
 
@@ -34,4 +34,4 @@ def observe(cognitive_state: CognitiveState, situation: Situation) -> CognitiveS
 
 if __name__ == "__main__":
     cognition = CognitiveState(automation_trust=0.75, perceived_risk=0.6, workload=0.4)
-    print(observe(cognition, Situation(task_complexity=1)))
+    print(update_cognitive_state(cognition, Situation(task_complexity=1)))

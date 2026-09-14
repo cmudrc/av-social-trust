@@ -14,7 +14,9 @@ from numbers import Integral
 
 @dataclass
 class Situation:
-    """Binary task complexity and automation availability shared by all agents."""
+    """
+    Binary task complexity and automation availability shared by all agents.
+    """
 
     task_complexity: int = 0
     automation_available: bool = True

@@ -3,7 +3,9 @@ from dataclasses import dataclass
 
 @dataclass
 class CognitiveState:
-    """A person's automation trust, perceived risk, and workload on [0, 1]."""
+    """
+    A person's automation trust, perceived risk, and workload on [0, 1].
+    """
 
     automation_trust: float
     perceived_risk: float

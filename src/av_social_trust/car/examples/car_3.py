@@ -1,5 +1,5 @@
 import av_social_trust as av
-from av_social_trust.cognitive.examples import (
+from av_social_trust.cognitive.state.examples import (
     cognitive_state_1,
     cognitive_state_2,
 )
