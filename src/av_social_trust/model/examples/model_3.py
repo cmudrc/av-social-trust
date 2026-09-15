@@ -1,7 +1,7 @@
 """Walk through a simulation with one driver and one passenger.
 
 Run from the project root using the project's Python environment:
-    python src/av_social_trust/model/examples/model_1.py
+    python src/av_social_trust/model/examples/model_3.py
 
 Driving situations, cognitive coefficients, and decision thresholds are synthetic.
 This example demonstrates the simulation flow, not fitted participant behavior.
@@ -58,18 +58,21 @@ if __name__ == "__main__":
     #   - learn new social trust from private opinions, for the NEXT cycle;
     #   - decide automation use from the DRIVER'S social preference and availability;
     #   - save the resulting state and intermediate values in history.
-    for situation in situations:
-        state = model.step(situation)
-        record = model.history[-1]
+    # run() consumes the ordered list and calls step() once per Situation.
+    model.run(situations)
+
+    for record in model.history:
+        state = record["state"]
+        situation = record["situation"]
 
         # Car exports occupants in driver-first order, so index 0 is the driver.
         private_preference = record["private_opinion_vector"][0]
         social_preference = state["opinion_vector"][0]
-        complexity = "high" if situation.task_complexity == 1 else "low"
-        availability = "yes" if situation.automation_available else "no"
+        complexity = "high" if situation["task_complexity"] == 1 else "low"
+        availability = "yes" if situation["automation_available"] else "no"
         mode = "ON" if state["automation_on"] else "OFF"
         print(
-            f"{model.cycle:5}  {complexity:10}  {availability:9}  "
+            f"{record['cycle']:5}  {complexity:10}  {availability:9}  "
             f"{private_preference:+.3f} -> {social_preference:+.3f}   {mode}"
         )
 

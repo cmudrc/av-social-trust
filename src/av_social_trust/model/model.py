@@ -2,7 +2,6 @@
 
 from copy import deepcopy
 from dataclasses import asdict
-from numbers import Integral
 
 from av_social_trust.car import Car
 from av_social_trust.cognitive import CognitiveState
@@ -34,24 +33,18 @@ class Model:
 
     def step(
             self,
-            situation: Situation | dict | None = None
+            situation: Situation
         ) -> dict:
         """
         Advance one cycle and return an independent copy of the new state.
 
-        A missing situation means low complexity with automation available.
-        Dictionaries are accepted for existing callers. Availability constrains
-        the final decision; task complexity drives the synthetic personal update. The
+        Supply one Situation instance. Availability constrains the final
+        decision; task complexity drives the synthetic personal update. The
         original Car is unchanged, and failed updates do not commit a cycle.
         """
-        if situation is None:
-            situation = Situation()
-        elif isinstance(situation, dict):
-            situation = Situation(**situation)
-        elif isinstance(situation, Situation):
-            situation = Situation(**asdict(situation))
-        else:
-            raise TypeError("situation must be a Situation, dict, or None.")
+        if not isinstance(situation, Situation):
+            raise TypeError("situation must be a Situation instance.")
+        situation = Situation(**asdict(situation))
 
         old_trust = self.state["trust_matrix"]
 
@@ -106,17 +99,23 @@ class Model:
         })
         return deepcopy(self.state)
 
-    def run(self, steps: int) -> dict:
+    def run(self, situations: list[Situation]) -> dict:
         """
-        Run exactly `steps` additional cycles and return the final state.
+        Run one additional cycle per Situation, in the supplied list order.
 
-        History contains one record per completed cycle, starting at cycle 1.
-        Use step(situation=...) directly when supplying changing conditions.
+        The list length determines the number of cycles. An empty list leaves
+        state and history unchanged. Return an independent copy of the final
+        state. All inputs are validated before starting; if a simulation update
+        later fails, previously completed cycles are retained.
         """
-        if isinstance(steps, bool) or not isinstance(steps, Integral) or steps < 0:
-            raise ValueError("steps must be a nonnegative integer.")
+        if not isinstance(situations, list):
+            raise TypeError("situations must be a list of Situation instances.")
+        for index, situation in enumerate(situations):
+            if not isinstance(situation, Situation):
+                raise TypeError(f"situations[{index}] must be a Situation instance.")
+            situation.validate()
 
-        for _ in range(steps):
-            self.step()
+        for situation in situations:
+            self.step(situation)
 
         return deepcopy(self.state)

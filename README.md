@@ -94,8 +94,9 @@ After populating a `Car`, create an independent simulation:
 
 ```python
 model = av.Model(car)
-state = model.step()       # One opinion update and one trust update.
-state = model.run(steps=5) # Five additional cycles.
+state = model.step(av.Situation(task_complexity=0))  # One complete cycle.
+situations = [av.Situation(0), av.Situation(1), av.Situation(1)]
+state = model.run(situations)  # Three additional cycles, in list order.
 print(state["opinion_vector"])
 print(model.history[-1])
 ```
@@ -104,6 +105,10 @@ Each cycle uses the old raw trust for social influence and the private opinions
 for trust learning. The new raw trust affects the next cycle. `model.history`
 records the private opinions, influence matrix, and resulting state for each
 completed cycle. The original `Car` remains unchanged.
+
+`step()` requires one `Situation`; `run()` requires a list of them. The list
+can come from `SituationGenerator.generate_series(...)` or a recorded-data
+loader. Its length sets the number of additional cycles; an empty list runs none.
 
 Each person's cognition evolves using synthetic affine coefficients and the shared
 task complexity. Private usage preferences are calculated from cognition before

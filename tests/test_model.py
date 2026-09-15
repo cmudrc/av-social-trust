@@ -23,7 +23,7 @@ class ModelTests(unittest.TestCase):
         car = make_car()
         original = car.to_state()
         model = av.Model(car)
-        result = model.step()
+        result = model.step(av.Situation())
 
         # Synthetic cognition produces private opinions [-0.42, 0.48].
         # Old social trust still supplies 75% self-influence in this cycle.
@@ -43,7 +43,7 @@ class ModelTests(unittest.TestCase):
 
         # The next cognitive update uses prior COGNITION, not social opinion.
         # New social trust now flips the driver's decision.
-        result = model.step()
+        result = model.step(av.Situation())
         np.testing.assert_allclose(
             model.history[1]["influence_matrix"], [[0.3125, 0.6875], [0.6875, 0.3125]]
         )
@@ -67,7 +67,7 @@ class ModelTests(unittest.TestCase):
         expected["cognitive_states"] = [asdict(cognition)]
         expected["opinion_vector"] = [cognitive_to_opinion(cognition)]
         expected["automation_on"] = decide_automation(expected["opinion_vector"][0])
-        self.assertEqual(model.run(3), expected)
+        self.assertEqual(model.run([av.Situation() for _ in range(3)]), expected)
         self.assertEqual(model.cycle, 3)
         self.assertEqual([entry["cycle"] for entry in model.history], [1, 2, 3])
 
@@ -75,13 +75,28 @@ class ModelTests(unittest.TestCase):
         car = make_car()
         model = av.Model(car)
         manual = av.Model(car)
-        model.run(2)
-        result = model.run(3)
-        for _ in range(5):
-            expected = manual.step()
+        situations = [
+            av.Situation(0, True), av.Situation(1, False),
+            av.Situation(1, True), av.Situation(0, False), av.Situation(1, True),
+        ]
+        original_situations = deepcopy(situations)
+        model.run(situations[:2])
+        result = model.run(situations[2:])
+        for situation in situations:
+            expected = manual.step(situation)
         self.assertEqual(result, expected)
         self.assertEqual(model.cycle, 5)
         self.assertEqual(len(model.history), 5)
+        self.assertEqual(model.history, manual.history)
+        self.assertEqual([record["situation"] for record in model.history],
+                         [asdict(situation) for situation in situations])
+        self.assertEqual(situations, original_situations)
+        self.assertEqual(model.run([]), result)
+        self.assertEqual(model.cycle, 5)
+        result["cognitive_states"][0]["automation_trust"] = -1
+        situations[0].task_complexity = 1
+        self.assertEqual(model.state, manual.state)
+        self.assertEqual(model.history, manual.history)
 
     def test_snapshots_and_situation_do_not_alias(self):
         model = av.Model(make_car())
@@ -97,20 +112,25 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(model.state["trust_matrix"][0][0], 0.25)
         self.assertEqual(model.state["agents"], [10, 20])
         self.assertEqual(model.history[0]["situation"]["task_complexity"], 1)
-        model.step()
+        model.step(av.Situation())
         self.assertEqual(model.history[0], saved)
 
-    def test_zero_steps_and_invalid_counts(self):
+    def test_empty_run_and_invalid_lists(self):
         model = av.Model(make_car())
         original = deepcopy(model.state)
-        result = model.run(0)
+        result = model.run([])
         self.assertEqual(result, original)
         result["opinion_vector"][0] = 0.0
         self.assertEqual(model.state, original)
-        for count in (-1, 1.5, True):
-            with self.subTest(count=count):
-                with self.assertRaises(ValueError):
-                    model.run(count)
+        for situations in (3, None, True, (av.Situation(),), [av.Situation(), {}]):
+            with self.subTest(situations=situations):
+                with self.assertRaises(TypeError):
+                    model.run(situations)  # type: ignore[arg-type]
+        invalid = av.Situation()
+        invalid.task_complexity = 2
+        with self.assertRaises(ValueError):
+            model.run([av.Situation(), invalid])
+        self.assertEqual(model.state, original)
         self.assertEqual(model.cycle, 0)
         self.assertEqual(model.history, [])
 
@@ -119,7 +139,7 @@ class ModelTests(unittest.TestCase):
         model.state["learning_rate_matrix"][0][0] = 2.0
         original = deepcopy(model.state)
         with self.assertRaises(ValueError):
-            model.step()
+            model.step(av.Situation())
         self.assertEqual(model.state, original)
         self.assertEqual(model.cycle, 0)
         self.assertEqual(model.history, [])
@@ -127,12 +147,12 @@ class ModelTests(unittest.TestCase):
     def test_availability_overrides_social_preference_without_changing_it(self):
         available = av.Model(make_car())
         unavailable = av.Model(make_car())
-        available.step()
-        unavailable.step()
+        available.step(av.Situation())
+        unavailable.step(av.Situation())
         enabled = available.step(av.Situation(1, True))
-        context = {"task_complexity": 1, "automation_available": False}
+        context = av.Situation(task_complexity=1, automation_available=False)
         disabled = unavailable.step(context)
-        context["automation_available"] = True
+        context.automation_available = True
         self.assertTrue(enabled["automation_on"])
         self.assertFalse(disabled["automation_on"])
         self.assertEqual(enabled["opinion_vector"], disabled["opinion_vector"])
@@ -143,21 +163,23 @@ class ModelTests(unittest.TestCase):
         car = av.Car()
         car.add_driver(1, 1.0, av.CognitiveState(0.1, 0.9, 0.8), 0.0)
         model = av.Model(car)
-        self.assertTrue(model.step()["automation_on"])
+        self.assertTrue(model.step(av.Situation())["automation_on"])
         model.state["cognitive_states"][0] = dict(
             automation_trust=0.1, perceived_risk=0.9, workload=0.0
         )
-        result = model.step()
+        result = model.step(av.Situation())
         self.assertLess(result["opinion_vector"][0], 0.0)
         self.assertFalse(result["automation_on"])
 
     def test_invalid_situation_does_not_commit(self):
         model = av.Model(make_car())
         original = deepcopy(model.state)
-        for situation in ({"task_complexity": 2}, {"automation_available": "false"}, 1):
+        invalid = av.Situation()
+        invalid.task_complexity = 2
+        for situation in (None, {"task_complexity": 0}, 1, invalid):
             with self.subTest(situation=situation):
                 with self.assertRaises((TypeError, ValueError)):
-                    model.step(situation)
+                    model.step(situation)  # type: ignore[arg-type]
                 self.assertEqual(model.state, original)
                 self.assertEqual(model.cycle, 0)
                 self.assertEqual(model.history, [])
