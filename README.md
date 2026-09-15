@@ -1,31 +1,78 @@
 # av-social-trust
-Simulating how passengers shape a driver's trust in automation. Couples individual trust dynamics with social influence to predict mode switching.
+Simulating how passengers influence a driver's decision to use automation.
+The model combines personal cognition, social opinion influence, and trust learning.
+Current coefficients and decision thresholds are synthetic sanity-check settings;
+the simulation is not yet calibrated to participant data.
 
 ## Setup
 
-With Python 3.13.8 installed through pyenv and the pyenv-virtualenv plugin available,
-create the environment once, then install the project from the repository root:
+Requires Python 3.11 or newer, as declared in `pyproject.toml`. Use your preferred
+Python installation and environment manager. With that environment active,
+install from the repository root:
 
 ```sh
-pyenv virtualenv 3.13.8 av-social-trust
-pyenv local av-social-trust
 python -m pip install -e .
 ```
 
-The `.python-version` file selects `av-social-trust` when working in this repository.
 Dependencies are declared in `pyproject.toml`.
 
-Import the public package with:
+If you need an environment, Python's built-in `venv` is one option:
+
+```sh
+python -m venv .venv
+# macOS / Linux:
+source .venv/bin/activate
+# Windows PowerShell (use instead of the line above):
+# .venv\Scripts\Activate.ps1
+python -m pip install -e .
+```
+
+Source code lives in `src/av_social_trust`. After changing package configuration,
+run `python -m pip install -e .` again to refresh the editable installation.
+
+## Run a synthetic simulation
+
+Run the walkthrough from the repository root:
+
+```sh
+python src/av_social_trust/model/examples/model_3.py
+```
+
+It prepares a car with one driver and one passenger, generates 20 situations,
+runs the simulation, and prints the driver's preferences and automation use.
+The car's starting cognition and social connections are defined in
+[`car_3.py`](src/av_social_trust/car/examples/car_3.py).
+
+For your own script:
 
 ```python
 import av_social_trust as av
+from av_social_trust.car.examples import car_3 as car
+from av_social_trust.situation import SituationGenerator
 
-car = av.Car()
+generator = SituationGenerator(
+    rng_seed=7,
+    task_complexity_probability=0.4,
+    automation_availability_probability=0.8,
+    task_complexity_persistence=0.8,
+    automation_availability_persistence=0.9,
+)
+situations = generator.generate_series(20)
+model = av.Model(car)
+state = model.run(situations)
+print(state["opinion_vector"])
+print(state["automation_on"])
 ```
 
-Consensus functions are available from `av_social_trust.consensus`.
-Source code lives in `src/av_social_trust`. After changing package configuration,
-run `python -m pip install -e .` again to refresh the editable installation.
+The generator produces persistent binary time series. Probabilities set long-run
+frequencies; persistence controls how strongly successive conditions resemble
+each other. The seed makes a sequence reproducible. Generation happens outside
+`Model`, so the simulation accepts the same inputs from other sources.
+
+## Consensus on its own
+
+Consensus functions are available from `av_social_trust.consensus`. The following
+examples use the populated `car` imported above.
 
 Run DeGroot updates with a fixed influence matrix:
 
@@ -117,8 +164,85 @@ preference is positive. Pass driving conditions to `model.step(situation=...)`.
 All occupants receive the same driving conditions; distraction is not modeled.
 Cycles have no assigned physical duration until fitted parameters are integrated.
 
-Run the tests:
+## Supply real-world data
+
+Recorded driving conditions can already replace generated situations. Prepare an
+ordered list of `Situation` objects and pass it to `model.run(situations)`, or
+feed one object at a time to `model.step(situation)`.
+
+| Input | Current representation |
+| --- | --- |
+| Driving conditions per cycle | `Situation(task_complexity=0 or 1, automation_available=True or False)` |
+| Each person's starting cognition | `CognitiveState(automation_trust, perceived_risk, workload)`, each in `[0, 1]` |
+| Cognitive response coefficients | Nine values in `CognitiveParameters`; accepted by the standalone cognitive updater |
+| Decision thresholds | Trust, risk, and workload thresholds; accepted by `cognitive_to_opinion()` |
+| Social relationships | Self-trust, directed interpersonal trust, learning rates, and homophilic/normative tradeoffs configured on `Car` |
+
+For example, a loader could produce the following records. These values are
+illustrative, not observations from a participant:
+
+```python
+import av_social_trust as av
+
+# Replace these records with your data, ordered by time before conversion.
+# This example schema uses integer complexity and actual Python booleans.
+records = [
+    {"task_complexity": 0, "automation_available": True},
+    {"task_complexity": 1, "automation_available": True},
+    {"task_complexity": 1, "automation_available": False},
+]
+situations = [av.Situation(**record) for record in records]
+
+# Replace these starting values with the participant's initial measurements.
+initial_cognition = av.CognitiveState(
+    automation_trust=0.75, perceived_risk=0.6, workload=0.4,
+)
+car = av.Car()
+car.add_driver(
+    agent_id=0,
+    self_trust=0.9,
+    cognitive_state=initial_cognition,
+    self_trust_learning_rate=0.1,
+)
+# Add passengers and directed connections for a social simulation; see car_3.py.
+model = av.Model(car)
+state = model.run(situations)
+print(model.history[-1])
+```
+
+Your loader is responsible for mapping the dataset's labels and units to these
+fields. Complexity currently supports only low (`0`) and high (`1`). Automation
+availability means the system can be used, not that the driver used it. Parse
+text flags explicitly: `bool("False")` evaluates to `True`. `Situation` does not
+store timestamps, so retain them separately and align records to the update
+interval; each list entry advances cognition once.
+
+**Recorded inputs do not yet make this a fitted participant simulation.** The
+full `Model` still uses the same synthetic cognitive coefficients and default
+decision thresholds for everyone. It does not yet accept participant-specific
+parameter sets, load a dataset, or replay measured cognitive trajectories.
+Supplying initial measurements sets the starting point; later cognitive states
+are predictions from the update equations.
+
+For calibrated forward simulation, estimate cognitive coefficients and decision
+thresholds from observations, or obtain existing fitted values. Coefficients
+cannot simply be read off a single cognitive measurement. Confirm state scaling,
+timestep, and boundary handling, then connect each participant's parameters to
+the model loop. Social parameters require their own evidence or explicit
+assumptions. Reserve observations for checking predicted cognition and automation
+use against measurements.
+
+The standalone `update_cognitive_state(..., parameters=...)` already supports
+custom `CognitiveParameters`. See the
+[cognitive update guide](src/av_social_trust/cognitive/update/README.md) for the
+separation between parameter data and update equations. Synthetic and fitted
+parameters can use the same equations; wiring per-person coefficients and
+thresholds into `Model` is the remaining integration step.
+
+## Tests
+
+Run all tests from the repository root using your chosen Python environment:
 
 ```sh
-python -m unittest discover -s tests -v
+python tests/tests.py
 ```
