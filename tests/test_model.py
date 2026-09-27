@@ -62,6 +62,18 @@ class ModelTests(unittest.TestCase):
         )
         np.testing.assert_allclose(result["trust_matrix"], [[0.55, 0.595], [0.595, 0.55]])
 
+    def test_multiple_decision_discussion_rounds_apply_matrix_power(self):
+        model = av.Model(make_car(), discussion_rounds=3)
+        result = model.step(av.Situation())
+        record = model.history[0]
+        weights = np.asarray(record["influence_matrix"])
+        expected = np.linalg.matrix_power(weights, 3) @ np.asarray(
+            record["private_opinion_vector"]
+        )
+
+        np.testing.assert_allclose(result["opinion_vector"], expected)
+        self.assertEqual(record["discussion_rounds"], 3)
+
     def test_solo_driver_matches_individual_model(self):
         car = av.Car()
         car.add_driver(7, 0.8, av.CognitiveState(0.65, 0.6, 0.4), 0.5)
@@ -238,6 +250,22 @@ class CognitionInfluenceModelTests(unittest.TestCase):
             [list(asdict(state).values()) for state in expected_private],
         )
 
+    def test_multiple_cognitive_discussion_rounds_apply_matrix_power(self):
+        model = av.CognitionInfluenceModel(make_car(), discussion_rounds=3)
+        result = model.step(av.Situation())
+        record = model.history[0]
+        weights = np.asarray(record["influence_matrix"])
+        private_cognition = np.asarray([
+            list(state.values()) for state in record["private_cognitive_states"]
+        ])
+        expected = np.linalg.matrix_power(weights, 3) @ private_cognition
+
+        np.testing.assert_allclose(
+            [list(state.values()) for state in result["cognitive_states"]],
+            expected,
+        )
+        self.assertEqual(record["discussion_rounds"], 3)
+
     def test_solo_driver_reduces_to_individual_model(self):
         car = av.Car()
         car.add_driver(7, 0.8, av.CognitiveState(0.65, 0.6, 0.4), 0.5)
@@ -269,6 +297,27 @@ class CognitionInfluenceModelTests(unittest.TestCase):
         )
         self.assertEqual(
             model.history[0]["individual_opinion_vector"], result["opinion_vector"]
+        )
+
+    def test_discussion_round_validation_and_zero_rounds(self):
+        for model_class in (av.Model, av.CognitionInfluenceModel):
+            for value in (-1, 1.5, True, None):
+                with self.subTest(model=model_class.__module__, value=value):
+                    with self.assertRaises(ValueError):
+                        model_class(make_car(), discussion_rounds=value)
+
+        old_model = av.Model(make_car(), discussion_rounds=0)
+        old_result = old_model.step(av.Situation())
+        np.testing.assert_allclose(
+            old_result["opinion_vector"],
+            old_model.history[0]["private_opinion_vector"],
+        )
+
+        new_model = av.CognitionInfluenceModel(make_car(), discussion_rounds=0)
+        new_result = new_model.step(av.Situation())
+        self.assertEqual(
+            new_result["cognitive_states"],
+            new_model.history[0]["private_cognitive_states"],
         )
 
 

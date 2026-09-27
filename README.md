@@ -96,6 +96,20 @@ The implementations are intentionally separate: the original sequence lives in
 `model_decision_influence.py`, while the cognition-level sequence lives in
 `model_cognition_influence.py`.
 
+Both models apply one DeGroot discussion round per cycle by default. Set
+`discussion_rounds` to apply the old influence matrix repeatedly before the
+cycle's single trust update:
+
+```python
+decision_model = av.Model(car, discussion_rounds=3)
+cognition_model = av.CognitionInfluenceModel(car, discussion_rounds=3)
+```
+
+For `discussion_rounds=k`, the social update is equivalent to multiplying by
+`W**k` while holding `W` fixed during that cycle. The default is `1`; `0`
+disables social influence for that cycle while retaining the rest of the model.
+The selected value is stored in every history record.
+
 The generator produces persistent binary time series. Probabilities set long-run
 frequencies; persistence controls how strongly successive conditions resemble
 each other. The seed makes a sequence reproducible. Generation happens outside

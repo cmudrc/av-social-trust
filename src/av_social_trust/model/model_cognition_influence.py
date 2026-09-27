@@ -2,10 +2,11 @@
 
 from copy import deepcopy
 from dataclasses import asdict
+from numbers import Integral
 
 from av_social_trust.car import Car
 from av_social_trust.cognitive import CognitiveState, update_cognitive_state
-from av_social_trust.consensus import degroot_step, normalize_trust_matrix
+from av_social_trust.consensus import normalize_trust_matrix, run_degroot
 from av_social_trust.decision import cognitive_to_opinion, decide_automation
 from av_social_trust.situation import Situation
 from av_social_trust.trust import trust_step
@@ -21,13 +22,15 @@ _COGNITIVE_COMPONENTS = (
 def _influence_cognitive_states(
     private_states: list[CognitiveState],
     influence_matrix,
+    discussion_rounds: int,
 ) -> list[CognitiveState]:
-    """Apply the same scalar DeGroot matrix to each cognitive component."""
+    """Apply fixed-matrix DeGroot rounds to each cognitive component."""
     influenced_components = {
-        component: degroot_step(
+        component: run_degroot(
             [getattr(state, component) for state in private_states],
             influence_matrix,
-        )
+            steps=discussion_rounds,
+        )["opinion_vector"]
         for component in _COGNITIVE_COMPONENTS
     }
     return [
@@ -40,7 +43,8 @@ def _influence_cognitive_states(
 
 
 class Model:
-    """Run cognition-level social influence with driver-specific authority.
+    """
+    Run cognition-level social influence with driver-specific authority.
 
     Each cycle advances private cognition, applies one DeGroot discussion round
     to every cognitive component, forms one individual opinion and decision per
@@ -48,13 +52,22 @@ class Model:
     trust rules learn from the resulting individual opinions.
     """
 
-    def __init__(self, car: Car):
+    def __init__(self, car: Car, *, discussion_rounds: int = 1):
+        if (
+            isinstance(discussion_rounds, bool)
+            or not isinstance(discussion_rounds, Integral)
+            or discussion_rounds < 0
+        ):
+            raise ValueError("discussion_rounds must be a nonnegative integer.")
         self.state = car.to_state()
+        self.discussion_rounds = int(discussion_rounds)
         self.cycle = 0
         self.history = []
 
     def step(self, situation: Situation) -> dict:
-        """Advance one cycle and return an independent copy of the new state."""
+        """
+        Advance one cycle and return an independent copy of the new state.
+        """
         if not isinstance(situation, Situation):
             raise TypeError("situation must be a Situation instance.")
         situation = Situation(**asdict(situation))
@@ -67,7 +80,9 @@ class Model:
 
         influence_matrix = normalize_trust_matrix(old_trust)
         social_cognition = _influence_cognitive_states(
-            private_cognition, influence_matrix
+            private_cognition,
+            influence_matrix,
+            self.discussion_rounds,
         )
 
         individual_opinions = [
@@ -114,12 +129,15 @@ class Model:
             "individual_opinion_vector": deepcopy(individual_opinions),
             "individual_decision_vector": deepcopy(individual_decisions),
             "influence_matrix": influence_matrix.tolist(),
+            "discussion_rounds": self.discussion_rounds,
             "state": deepcopy(self.state),
         })
         return deepcopy(self.state)
 
     def run(self, situations: list[Situation]) -> dict:
-        """Run one additional cycle per situation, in supplied list order."""
+        """
+        Run one additional cycle per situation, in supplied list order.
+        """
         if not isinstance(situations, list):
             raise TypeError("situations must be a list of Situation instances.")
         for index, situation in enumerate(situations):

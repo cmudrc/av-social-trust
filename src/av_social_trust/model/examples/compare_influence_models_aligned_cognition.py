@@ -67,7 +67,7 @@ def _mode(enabled: bool) -> str:
     return "ON" if enabled else "OFF"
 
 
-def main() -> None:
+def main(discussion_rounds: int = 1) -> None:
     complexities = [0, 0, 1, 1, 0, 1, 0, 0, 1, 0]
     situations = [
         av.Situation(task_complexity=value, automation_available=True)
@@ -75,13 +75,16 @@ def main() -> None:
     ]
 
     car = _make_aligned_car()
-    decision_model = av.Model(car)
-    cognition_model = av.CognitionInfluenceModel(car)
+    decision_model = av.Model(car, discussion_rounds=discussion_rounds)
+    cognition_model = av.CognitionInfluenceModel(
+        car, discussion_rounds=discussion_rounds
+    )
     decision_model.run(situations)
     cognition_model.run(situations)
 
     print("Low-divergence comparison using aligned cognitive profiles")
     print("DI = decision-level influence; CI = cognition-level influence")
+    print(f"DeGroot discussion rounds per cycle: {discussion_rounds}")
     print(
         "Both occupants primarily favor automation because automation trust is\n"
         "above its threshold. Each initially assigns 80% of social weight to\n"

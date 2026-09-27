@@ -74,7 +74,7 @@ def _mode(enabled: bool) -> str:
     return "ON" if enabled else "OFF"
 
 
-def main(number_of_cycles: int = 8) -> None:
+def main(number_of_cycles: int = 8, discussion_rounds: int = 1) -> None:
     situations = [
         av.Situation(task_complexity=1, automation_available=True)
         for _ in range(number_of_cycles)
@@ -83,13 +83,16 @@ def main(number_of_cycles: int = 8) -> None:
     # Each constructor takes an independent snapshot of the same car. Both
     # models then receive the exact same ordered Situation objects.
     car = _make_comparison_car()
-    decision_model = av.Model(car)
-    cognition_model = av.CognitionInfluenceModel(car)
+    decision_model = av.Model(car, discussion_rounds=discussion_rounds)
+    cognition_model = av.CognitionInfluenceModel(
+        car, discussion_rounds=discussion_rounds
+    )
     decision_model.run(situations)
     cognition_model.run(situations)
 
     print("Comparison using the same occupants, trust, and situations")
     print("DI = decision-level influence; CI = cognition-level influence")
+    print(f"DeGroot discussion rounds per cycle: {discussion_rounds}")
     print("Before -> after shows the driver's opinion around social influence.\n")
     print(
         "The driver initially favors automation because perceived risk is low;\n"
