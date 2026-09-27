@@ -1,16 +1,19 @@
 # Reusing Sibi's individual model inside the social simulation
 
-Status: architecture recommendation; no supplied implementation or participant
-parameter files have been inspected. This revises the replay-first recommendation
-in [architecture.md](architecture.md).
+Status: the original decision-level model and the cognition-level extension are
+implemented as separate model classes. No supplied participant parameter files
+have been inspected. This revises the replay-first recommendation in
+[architecture.md](architecture.md).
 
 ## Recommendation
 
 Use Sibi's individual cognitive dynamics and reliance decision rule as the
-baseline. Add the social model around that baseline through a small adapter.
-Create a new individual model only if a specific limitation requires it, and
-compare it against the original baseline. An independently invented decision
-rule would change both the personal and social mechanisms at once.
+baseline. `model_decision_influence.py` preserves the original decision-level
+sequence, while `model_cognition_influence.py` applies social influence to
+cognition before occupants form individual decisions. Create a new individual
+model only if a specific limitation requires it, and compare it against the
+original baseline. An independently invented decision rule would change both
+the personal and social mechanisms at once.
 
 The supplied comparison note is `Sibi_2025_06_17_Opinion_Dynamics-3.pdf`
 (its printed header is dated June 17, 2026). Sections 1.1-1.2 recap the IDETC
@@ -61,22 +64,23 @@ calibration or replay pathway.
 
 Let each agent have cognition `z_i = [tau_i, risk_i, workload_i]`. Keep the raw
 social trust matrix `T` separate; its diagonal is social self-trust, not tau.
-The proposed social intervention affects automation trust only at first.
+The implemented cognition-level model applies the same influence matrix to the
+three cognitive components separately. This reuses the scalar DeGroot backend
+without changing its established opinion-vector behavior.
 
 1. Advance each person's cognition once with their own fitted parameters and
    the common driving context: `z_private_i = F_i(z_i, context)`.
-2. Extract private automation trust and convert scales:
-   `o_private_i = 2 * tau_private_i - 1`.
-3. Derive `W` from the old raw social trust and apply the configured finite
-   social update: `o_next = W @ o_private` for one discussion round.
-4. Convert back: `tau_next_i = (o_next_i + 1) / 2`. Keep the privately updated
-   risk and workload components unchanged by social discussion in this version.
-5. Evaluate the driver's original reliance rule using this updated cognition.
-   Apply environmental availability constraints outside the voluntary rule.
-6. Update raw interpersonal and social self-trust using the private opinions
+2. Derive `W` from the old raw social trust and apply one scalar DeGroot update
+   separately to automation trust, perceived risk, and workload.
+3. Reconstruct one socially influenced `CognitiveState` per occupant.
+4. Form one individual opinion and decision from each resulting cognitive state.
+5. Execute only the driver's individual decision. Apply environmental
+   availability constraints to this executed action, not the other occupants'
+   hypothetical decisions.
+6. Update raw interpersonal and social self-trust using the individual opinions
    and old raw trust, as in the existing `trust_step` convention.
-7. Feed the resulting cognition into the next individual update. Do not reset
-   it to a separate solo trajectory on every step.
+7. Feed the socially influenced cognition into the next individual update. Do
+   not reset it to a separate solo trajectory on every step.
 
 This is a proposed social extension, not an equivalence or a validated passenger
 model. Preserve the original model's input units, timestep, and handling of

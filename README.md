@@ -4,6 +4,13 @@ The model combines personal cognition, social opinion influence, and trust learn
 Current coefficients and decision thresholds are synthetic sanity-check settings;
 the simulation is not yet calibrated to participant data.
 
+Two explicit model classes are available. `av.Model` preserves the original
+decision-level influence structure. `av.CognitionInfluenceModel` applies the
+same DeGroot influence matrix separately to automation trust, perceived risk,
+and workload before each occupant forms an individual opinion and decision;
+only the driver's decision is executed. Both models reuse the same cognitive,
+decision, consensus, and trust-update modules.
+
 ## Setup
 
 Requires Python 3.11 or newer, as declared in `pyproject.toml`. Use your preferred
@@ -43,6 +50,20 @@ runs the simulation, and prints the driver's preferences and automation use.
 The car's starting cognition and social connections are defined in
 [`car_3.py`](src/av_social_trust/car/examples/car_3.py).
 
+To run both model structures on the same car and situation sequence and compare
+their per-cycle driver opinions, decisions, executed modes, and final trust:
+
+```sh
+python src/av_social_trust/model/examples/compare_influence_models.py
+```
+
+For a contrasting case where the occupants have aligned cognition and both
+models remain close:
+
+```sh
+python src/av_social_trust/model/examples/compare_influence_models_aligned_cognition.py
+```
+
 For your own script:
 
 ```python
@@ -63,6 +84,17 @@ state = model.run(situations)
 print(state["opinion_vector"])
 print(state["automation_on"])
 ```
+
+To run the cognition-level influence model instead:
+
+```python
+model = av.CognitionInfluenceModel(car)
+state = model.run(situations)
+```
+
+The implementations are intentionally separate: the original sequence lives in
+`model_decision_influence.py`, while the cognition-level sequence lives in
+`model_cognition_influence.py`.
 
 The generator produces persistent binary time series. Probabilities set long-run
 frequencies; persistence controls how strongly successive conditions resemble
@@ -163,6 +195,12 @@ discussion. Automation is enabled only when available and the driver's social
 preference is positive. Pass driving conditions to `model.step(situation=...)`.
 All occupants receive the same driving conditions; distraction is not modeled.
 Cycles have no assigned physical duration until fitted parameters are integrated.
+
+`CognitionInfluenceModel` instead advances private cognition, applies the old
+trust-derived influence matrix to each cognitive component, and then forms one
+individual opinion and decision per occupant. The driver's individual decision
+alone controls the vehicle. Its trust update uses those individual opinions,
+and its history retains both private and socially influenced cognitive states.
 
 ## Supply real-world data
 

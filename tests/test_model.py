@@ -7,6 +7,8 @@ import numpy as np
 import av_social_trust as av
 from av_social_trust.cognitive import update_cognitive_state
 from av_social_trust.decision import cognitive_to_opinion, decide_automation
+from av_social_trust.model.model_cognition_influence import Model as CognitionModel
+from av_social_trust.model.model_decision_influence import Model as DecisionModel
 
 
 def make_car():
@@ -19,6 +21,10 @@ def make_car():
 
 
 class ModelTests(unittest.TestCase):
+    def test_default_model_preserves_decision_influence_model(self):
+        self.assertIs(av.Model, DecisionModel)
+        self.assertIs(av.CognitionInfluenceModel, CognitionModel)
+
     def test_cycle_uses_old_trust_and_private_opinions(self):
         car = make_car()
         original = car.to_state()
@@ -183,6 +189,87 @@ class ModelTests(unittest.TestCase):
                 self.assertEqual(model.state, original)
                 self.assertEqual(model.cycle, 0)
                 self.assertEqual(model.history, [])
+
+
+class CognitionInfluenceModelTests(unittest.TestCase):
+    def test_social_influence_changes_cognition_before_individual_decisions(self):
+        car = make_car()
+        original = car.to_state()
+        model = av.CognitionInfluenceModel(car)
+        result = model.step(av.Situation())
+
+        np.testing.assert_allclose(
+            [
+                list(state.values())
+                for state in model.history[0]["private_cognitive_states"]
+            ],
+            [[0.08, 0.92, 0.02], [0.98, 0.92, 0.02]],
+        )
+        np.testing.assert_allclose(
+            [list(state.values()) for state in result["cognitive_states"]],
+            [[0.305, 0.92, 0.02], [0.755, 0.92, 0.02]],
+        )
+        np.testing.assert_allclose(result["opinion_vector"], [-0.195, 0.255])
+        self.assertEqual(
+            model.history[0]["individual_decision_vector"], [False, True]
+        )
+        self.assertFalse(result["automation_on"])
+
+        # Trust uses the individual opinions formed after cognitive influence.
+        np.testing.assert_allclose(
+            result["trust_matrix"], [[0.25, 0.775], [0.775, 0.25]]
+        )
+        self.assertEqual(car.to_state(), original)
+
+    def test_next_private_update_starts_from_social_cognition(self):
+        model = av.CognitionInfluenceModel(make_car())
+        first = model.step(av.Situation())
+        model.step(av.Situation())
+
+        expected_private = [
+            update_cognitive_state(av.CognitiveState(**state), av.Situation())
+            for state in first["cognitive_states"]
+        ]
+        np.testing.assert_allclose(
+            [
+                list(state.values())
+                for state in model.history[1]["private_cognitive_states"]
+            ],
+            [list(asdict(state).values()) for state in expected_private],
+        )
+
+    def test_solo_driver_reduces_to_individual_model(self):
+        car = av.Car()
+        car.add_driver(7, 0.8, av.CognitiveState(0.65, 0.6, 0.4), 0.5)
+        model = av.CognitionInfluenceModel(car)
+        expected_cognition = av.CognitiveState(**car.to_state()["cognitive_states"][0])
+
+        for _ in range(3):
+            expected_cognition = update_cognitive_state(
+                expected_cognition, av.Situation()
+            )
+
+        result = model.run([av.Situation() for _ in range(3)])
+        self.assertEqual(result["cognitive_states"], [asdict(expected_cognition)])
+        self.assertEqual(
+            result["opinion_vector"], [cognitive_to_opinion(expected_cognition)]
+        )
+        self.assertEqual(
+            result["automation_on"],
+            decide_automation(result["opinion_vector"][0]),
+        )
+
+    def test_availability_only_constrains_executed_driver_decision(self):
+        model = av.CognitionInfluenceModel(make_car())
+        result = model.step(av.Situation(automation_available=False))
+
+        self.assertFalse(result["automation_on"])
+        self.assertEqual(
+            model.history[0]["individual_decision_vector"], [False, True]
+        )
+        self.assertEqual(
+            model.history[0]["individual_opinion_vector"], result["opinion_vector"]
+        )
 
 
 if __name__ == "__main__":
