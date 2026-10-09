@@ -19,7 +19,8 @@ class Model:
 
     Each cycle updates personal cognition, forms private usage opinions, applies
     one DeGroot discussion round to those opinions, learns social trust from
-    the private opinions, and lets the driver act on their influenced opinion.
+    the private opinions, and forms final decisions that account for automation
+    availability. Only the driver's final decision controls automation use.
     """
 
     def __init__(self, car: Car, *, discussion_rounds: int = 1):
@@ -56,6 +57,12 @@ class Model:
             influence_matrix,
             steps=self.discussion_rounds,
         )["opinion_vector"]
+        individual_decisions = [
+            decide_automation(
+                opinion, automation_available=situation.automation_available
+            )
+            for opinion in next_opinions
+        ]
 
         next_trust = trust_step(
             opinion_vector=private_opinions,
@@ -67,9 +74,8 @@ class Model:
             connection_mask_matrix=self.state["connection_mask_matrix"],
         )
 
-        automation_on = decide_automation(
-            next_opinions[0], automation_available=situation.automation_available
-        )
+        # Car exports occupants in driver-first order. Execute that final decision.
+        automation_on = individual_decisions[0]
 
         next_state = deepcopy(self.state)
         next_state["cognitive_states"] = [asdict(state) for state in next_cognition]
@@ -83,6 +89,7 @@ class Model:
             "cycle": self.cycle,
             "situation": asdict(situation),
             "private_opinion_vector": deepcopy(private_opinions),
+            "individual_decision_vector": deepcopy(individual_decisions),
             "influence_matrix": influence_matrix.tolist(),
             "discussion_rounds": self.discussion_rounds,
             "state": deepcopy(self.state),

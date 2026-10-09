@@ -20,6 +20,58 @@ def make_car():
     return car
 
 
+class DriverDecisionTests(unittest.TestCase):
+    def test_driver_decision_controls_action_despite_passenger_majority(self):
+        for model_class in (DecisionModel, CognitionModel):
+            for driver_on in (False, True):
+                with self.subTest(model=model_class.__module__, driver_on=driver_on):
+                    car = av.Car()
+                    # Add passengers first to verify driver-first exported ordering.
+                    passenger_state = (
+                        av.CognitiveState(0.0, 1.0, 0.0)
+                        if driver_on else av.CognitiveState(1.0, 0.0, 1.0)
+                    )
+                    for agent_id in (20, 30, 40):
+                        car.add_passenger(agent_id, 1.0, passenger_state, 0.0)
+                    driver_state = (
+                        av.CognitiveState(1.0, 0.0, 1.0)
+                        if driver_on else av.CognitiveState(0.0, 1.0, 0.0)
+                    )
+                    car.add_driver(10, 1.0, driver_state, 0.0)
+                    model = model_class(car)
+                    result = model.step(av.Situation())
+
+                    self.assertEqual(result["agents"], [10, 20, 30, 40])
+                    self.assertEqual(
+                        model.history[-1]["individual_decision_vector"],
+                        [driver_on, *([not driver_on] * 3)],
+                    )
+                    self.assertIs(result["automation_on"], driver_on)
+
+    def test_final_driver_decision_follows_influence_and_availability(self):
+        for model_class in (DecisionModel, CognitionModel):
+            for available in (False, True):
+                with self.subTest(model=model_class.__module__, available=available):
+                    model = model_class(make_car())
+                    first = model.step(av.Situation())
+                    self.assertLess(first["opinion_vector"][0], 0.0)
+                    self.assertEqual(
+                        model.history[-1]["individual_decision_vector"], [False, True]
+                    )
+                    self.assertFalse(first["automation_on"])
+
+                    # Social influence now flips the driver's opinion to positive.
+                    result = model.step(av.Situation(automation_available=available))
+                    decisions = model.history[-1]["individual_decision_vector"]
+                    self.assertGreater(result["opinion_vector"][0], 0.0)
+                    self.assertEqual(decisions, [available, False])
+                    self.assertIs(result["automation_on"], decisions[0])
+                    self.assertIs(model.state["automation_on"], decisions[0])
+                    self.assertIs(
+                        model.history[-1]["state"]["automation_on"], decisions[0]
+                    )
+
+
 class ModelTests(unittest.TestCase):
     def test_default_model_preserves_decision_influence_model(self):
         self.assertIs(av.Model, DecisionModel)
@@ -287,13 +339,13 @@ class CognitionInfluenceModelTests(unittest.TestCase):
             decide_automation(result["opinion_vector"][0]),
         )
 
-    def test_availability_only_constrains_executed_driver_decision(self):
+    def test_availability_constrains_final_decisions_without_changing_opinions(self):
         model = av.CognitionInfluenceModel(make_car())
         result = model.step(av.Situation(automation_available=False))
 
         self.assertFalse(result["automation_on"])
         self.assertEqual(
-            model.history[0]["individual_decision_vector"], [False, True]
+            model.history[0]["individual_decision_vector"], [False, False]
         )
         self.assertEqual(
             model.history[0]["individual_opinion_vector"], result["opinion_vector"]

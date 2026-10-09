@@ -24,7 +24,9 @@ def _influence_cognitive_states(
     influence_matrix,
     discussion_rounds: int,
 ) -> list[CognitiveState]:
-    """Apply fixed-matrix DeGroot rounds to each cognitive component."""
+    """
+    Apply fixed-matrix DeGroot rounds to each cognitive component.
+    """
     influenced_components = {
         component: run_degroot(
             [getattr(state, component) for state in private_states],
@@ -48,8 +50,9 @@ class Model:
 
     Each cycle advances private cognition, applies one DeGroot discussion round
     to every cognitive component, forms one individual opinion and decision per
-    occupant, and executes only the driver's decision. The existing IDETC-style
-    trust rules learn from the resulting individual opinions.
+    occupant, and executes only the driver's decision. Final decisions account
+    for automation availability. The existing IDETC-style trust rules learn
+    from the resulting individual opinions.
     """
 
     def __init__(self, car: Car, *, discussion_rounds: int = 1):
@@ -89,7 +92,10 @@ class Model:
             cognitive_to_opinion(state) for state in social_cognition
         ]
         individual_decisions = [
-            decide_automation(opinion) for opinion in individual_opinions
+            decide_automation(
+                opinion, automation_available=situation.automation_available
+            )
+            for opinion in individual_opinions
         ]
 
         next_trust = trust_step(
@@ -102,10 +108,8 @@ class Model:
             connection_mask_matrix=self.state["connection_mask_matrix"],
         )
 
-        automation_on = decide_automation(
-            individual_opinions[0],
-            automation_available=situation.automation_available,
-        )
+        # Car exports occupants in driver-first order. Execute that final decision.
+        automation_on = individual_decisions[0]
 
         next_state = deepcopy(self.state)
         next_state["cognitive_states"] = [

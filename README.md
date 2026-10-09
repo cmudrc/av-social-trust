@@ -216,6 +216,11 @@ individual opinion and decision per occupant. The driver's individual decision
 alone controls the vehicle. Its trust update uses those individual opinions,
 and its history retains both private and socially influenced cognitive states.
 
+Both models record final decisions in `history[-1]["individual_decision_vector"]`
+in driver-first order. Decisions account for automation availability, and
+`state["automation_on"]` equals the driver's final decision at index `0`.
+Opinions remain usage preferences even when automation is unavailable.
+
 ## Supply real-world data
 
 Recorded driving conditions can already replace generated situations. Prepare an
