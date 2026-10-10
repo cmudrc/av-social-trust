@@ -13,6 +13,12 @@ dependencies = [
     "numpy>=2,<3",
 ]
 
+[project.optional-dependencies]
+experiment = [
+    "scipy>=1.15,<2",
+    "matplotlib>=3.8,<4",
+]
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 

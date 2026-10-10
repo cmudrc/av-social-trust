@@ -23,6 +23,11 @@ python -m pip install -e .
 
 Dependencies are declared in `pyproject.toml`.
 
+For fitted-participant experiments with shared tracks, multicore execution,
+per-model resume and separate analyses, see [`experiment/README.md`](experiment/README.md).
+Its scripts support VS Code's **Run Python File**. The private participant export
+and generated model results are gitignored.
+
 If you need an environment, Python's built-in `venv` is one option:
 
 ```sh
