@@ -1,8 +1,13 @@
 # av-social-trust
 Simulating how passengers influence a driver's decision to use automation.
 The model combines personal cognition, social opinion influence, and trust learning.
-Current coefficients and decision thresholds are synthetic sanity-check settings;
-the simulation is not yet calibrated to participant data.
+This repository contains the vehicle application of "Beyond Individual Trust:
+How Peer Influence Shapes the Adoption and Use of AI and Automation" (Journal of
+Mechanical Design). The paper's simulations give each of 26 drivers
+from a driving-simulator study their own fitted cognitive model and decision tree;
+that pipeline is in [`experiment/`](experiment/README.md). The participant data
+are not included in this repository. The package examples below use synthetic
+coefficients and thresholds for illustration.
 
 Two explicit model classes are available. `av.Model` preserves the original
 decision-level influence structure. `av.CognitionInfluenceModel` applies the
@@ -279,12 +284,12 @@ text flags explicitly: `bool("False")` evaluates to `True`. `Situation` does not
 store timestamps, so retain them separately and align records to the update
 interval; each list entry advances cognition once.
 
-**Recorded inputs do not yet make this a fitted participant simulation.** The
-full `Model` still uses the same synthetic cognitive coefficients and default
-decision thresholds for everyone. It does not yet accept participant-specific
-parameter sets, load a dataset, or replay measured cognitive trajectories.
-Supplying initial measurements sets the starting point; later cognitive states
-are predictions from the update equations.
+**Recorded inputs alone do not make this a fitted participant simulation.** The
+package's `Model` uses the same synthetic cognitive coefficients and default
+decision thresholds for everyone. Supplying initial measurements sets the
+starting point; later cognitive states are predictions from the update equations.
+The participant-specific simulations reported in the paper, with each driver's
+fitted coefficients and decision tree, are run by [`experiment/`](experiment/README.md).
 
 For calibrated forward simulation, estimate cognitive coefficients and decision
 thresholds from observations, or obtain existing fitted values. Coefficients
@@ -294,12 +299,7 @@ the model loop. Social parameters require their own evidence or explicit
 assumptions. Reserve observations for checking predicted cognition and automation
 use against measurements.
 
-The standalone `update_cognitive_state(..., parameters=...)` already supports
-custom `CognitiveParameters`. See the
-[cognitive update guide](src/av_social_trust/cognitive/update/README.md) for the
-separation between parameter data and update equations. Synthetic and fitted
-parameters can use the same equations; wiring per-person coefficients and
-thresholds into `Model` is the remaining integration step.
+The standalone `update_cognitive_state(..., parameters=...)` already supports custom `CognitiveParameters`. See the [cognitive update guide](src/av_social_trust/cognitive/update/README.md) for the separation between parameter data and update equations. Synthetic and fitted parameters can use the same equations; [`experiment/`](experiment/README.md) shows how per-person coefficients and thresholds are connected to the simulation.
 
 ## Tests
 

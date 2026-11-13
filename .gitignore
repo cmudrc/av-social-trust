@@ -218,6 +218,7 @@ __marimo__/
 .streamlit/secrets.toml
 
 .python-version
+.DS_Store
 
 paper/
 
@@ -226,4 +227,8 @@ experiment/runs/
 experiment/analysis/results/
 experiment/analysis/*/results/
 experiment/.*.lock
-.DS_Store
+experiment/assets/ASME_JMD_Trust_and_Adoption/
+experiment/analysis/FIGURE_GUIDE.md
+experiment/analysis/PAPER_RESULTS*.md
+experiment/analysis/THEME_PREVIEW.md
+experiment/analysis/paper_results.*

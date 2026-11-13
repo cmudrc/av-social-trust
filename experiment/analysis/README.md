@@ -52,10 +52,7 @@ the driver's retained own weight, passengers' attention to the driver, and
 relative influence in the current network. It distinguishes starting positions,
 concurrent associations, early-to-late changes and disagreement carried by
 influential passengers. Both produce PNG and vector PDF figures and save plot
-data for fast redraws. Read [PAPER_RESULTS.md](PAPER_RESULTS.md) for the recommended
-questions, current findings and figures to consider for the paper. Read
-[FIGURE_GUIDE.md](FIGURE_GUIDE.md) for plain-language explanations of the selected
-figures and a proposed results story. `trust_learning` reruns a small matched
+data for fast redraws. `trust_learning` reruns a small matched
 sample with altered initial networks and learning controls; source archives
 remain read-only.
 
@@ -86,12 +83,9 @@ run after `compare_modes` changes the cache rebuilds it (about two minutes).
 
 ## Figures for the paper
 
-The latest selected figures and a draft results narrative are in
-[PAPER_RESULTS_UPDATED.md](PAPER_RESULTS_UPDATED.md). The earlier figure guide
-remains a separate snapshot. Timing now includes early/later comparisons and
-non-overlapping ten-step averages, with optional complexity panels and no
-equal-weight pressure curves. Starting confidence uses three named categories;
-a five-category alternative is also saved. Time axes are labelled **Steps**.
+`paper_figures/jmd/plot.py` draws the vehicle figures in the JMD paper from the
+saved results of `track_social_effects`, `social_direction`, `influence_timing`,
+`driver_confidence` and `example_cases`. Run those analyses first.
 
 Analyses can take minutes; figures should not. The social-layer questions
 therefore separate the two: **run.py** computes and saves everything a figure

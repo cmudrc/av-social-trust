@@ -1,10 +1,10 @@
 # Participant experiment
 
-This folder replaces the layered `paper/experiments` pipeline. Its code is public;
-`data/`, `runs/` and each analysis question's `results/` subfolder are gitignored. The private data copy is
-untouched. The new code does not import anything from `paper/`, reuse the old
-study results, or create `study_<hash>` directories. Old studies remain where they
-were; this runner starts fresh in the initially empty `experiment/runs/`.
+This folder runs the vehicle simulations reported in the JMD paper. Each of the
+26 drivers is represented by their own fitted cognitive model and decision tree,
+and passengers reuse these driver models. The code is public; the participant
+models (`data/combined_models.mat`), simulation outputs (`runs/`) and analysis
+outputs (each question's `results/`) are not included in the repository.
 
 Install the experiment dependencies in your Python environment:
 
