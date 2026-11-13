@@ -43,7 +43,7 @@ from experiment.analysis.driver_confidence.plot import starting_categories
 # =========================
 OUTPUT = Path(__file__).resolve().parent
 PAPER_FIGURES = Path(__file__).resolve().parents[3] / "assets" / "ASME_JMD_Trust_and_Adoption" / "figures"
-COPY_TO_PAPER = True
+COPY_TO_PAPER = False
 
 TEXT_WIDTH = 7.0      # inches, asmejour \textwidth
 COLUMN_WIDTH = 3.375  # inches, asmejour \columnwidth
