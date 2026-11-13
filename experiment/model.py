@@ -1,7 +1,7 @@
 """Participant-specific affine cognition and trees with two influence modes.
 
 Preserves the exploratory paper experiment: discrete updates, clipping to [0,1],
-carry/mix for unselected dimensions, binary voting and a star social network.
+carry/mix for unselected dimensions, binary voting and configurable networks.
 Driver models are also used for passengers; this is a modeling assumption.
 """
 
@@ -54,16 +54,15 @@ def run_model(initial, participants, settings, variant, situations, stop=None):
             for component in range(3):
                 social[:,component] = run_degroot(private[:,component],weights,steps=settings.discussion_rounds)["opinion_vector"]
             decisions,probability,final_opinions = opinions(people,social)
-            trust_opinions = final_opinions
         elif variant=="decision":
             final_opinions = run_degroot(private_opinions,weights,steps=settings.discussion_rounds)["opinion_vector"]
             decisions,probability = final_opinions>0,private_probability
-            trust_opinions = private_opinions
         else:
             decisions,probability,final_opinions = private_decisions,private_probability,private_opinions
-            trust_opinions = private_opinions
         final_decisions = decisions&situation.automation_available
-        trust = trust_step(trust_opinions,trust,initial["rates"],initial["alpha"],initial["mask"])
+        # Both variants use the same pre-influence decision norm. The private
+        # votes may differ in later cycles because cognition has evolved.
+        trust = trust_step(private_opinions,trust,initial["rates"],initial["alpha"],initial["mask"])
         cognition = social.copy()
         history.append(dict(step=step,raw_private_cognition=raw,private_cognition=private,
             social_cognition=social,clipped=(raw<0)|(raw>1),private_decisions=private_decisions,
@@ -73,5 +72,5 @@ def run_model(initial, participants, settings, variant, situations, stop=None):
     # Shared situation columns are intentionally not duplicated in each result.
     arrays = {key:np.asarray([row[key] for row in history]) for key in history[0]}
     arrays.update(initial_cognition=initial["cognition"],initial_trust=initial["trust"],
-                  initial_alpha=initial["alpha"],connection_mask=initial["mask"])
+                  alpha=initial["alpha"].copy(),connection_mask=initial["mask"])
     return arrays

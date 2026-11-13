@@ -9,10 +9,12 @@ import io
 import json
 from pathlib import Path
 import sqlite3
+import time
 
 import numpy as np
 
 from experiment.design import canonical
+from experiment.runtime_compatibility import definitions_match
 
 
 def archive_path(directory, driver, track):
@@ -28,6 +30,24 @@ def pack_trajectory(arrays):
 def unpack_trajectory(blob):
     with np.load(io.BytesIO(blob),allow_pickle=False) as saved:
         return {name:saved[name].copy() for name in saved.files}
+
+
+def enable_wal(db, timeout=60):
+    """Journal-mode transitions can return SQLITE_BUSY without a busy wait."""
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            if db.execute("PRAGMA journal_mode").fetchone()[0] == "wal":
+                return
+            if db.execute("PRAGMA journal_mode=WAL").fetchone()[0] == "wal":
+                return
+            raise sqlite3.OperationalError("Could not enable WAL journal mode")
+        except sqlite3.OperationalError as exc:
+            if (getattr(exc, "sqlite_errorcode", None) not in
+                    (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED)
+                    or time.monotonic() >= deadline):
+                raise
+            time.sleep(0.05)
 
 
 class ResultStore:
@@ -46,7 +66,7 @@ class ResultStore:
         self.directory.mkdir(parents=True,exist_ok=True)
         db = sqlite3.connect(archive_path(self.directory,driver,track),timeout=60)
         try:
-            db.execute("PRAGMA journal_mode=WAL")
+            enable_wal(db)
             db.execute("PRAGMA synchronous=FULL")
             db.execute("PRAGMA cache_size=-256")
             db.executescript("""
@@ -56,11 +76,12 @@ class ResultStore:
                     metadata TEXT NOT NULL,automation_on BLOB NOT NULL,trajectory BLOB NOT NULL,
                     PRIMARY KEY(composition,start,variant)) WITHOUT ROWID;
                 CREATE INDEX IF NOT EXISTS result_variants ON results(variant,composition,start);
+                CREATE INDEX IF NOT EXISTS result_completion ON results(composition,start,variant);
             """)
             with db:
                 db.execute("INSERT OR IGNORE INTO metadata VALUES ('definition',?)",(canonical(self.definition),))
                 definition = json.loads(db.execute("SELECT value FROM metadata WHERE key='definition'").fetchone()[0])
-                if definition!=self.definition:
+                if not definitions_match(definition,self.definition):
                     raise ValueError("Results use different settings/code/inputs. Choose an empty RUNS_DIR to start fresh.")
             self.connections[key] = db
             if len(self.connections)>self.max_connections:
@@ -120,12 +141,51 @@ def check_existing(directory, definition):
             saved = db.execute("SELECT value FROM metadata WHERE key='definition'").fetchone() if "metadata" in tables else None
             if saved is None and models==0:
                 continue
-            if saved is None or canonical(json.loads(saved[0]))!=canonical(definition):
+            if saved is None or not definitions_match(json.loads(saved[0]),definition):
                 raise ValueError(f"{path.name} belongs to different settings/code/inputs. Use an empty RUNS_DIR.")
             count += models
         finally:
             db.close()
     return count
+
+
+def resume_definition(directory, definition):
+    """Retain the original archive provenance after a vetted runtime-only fix."""
+    for path in sorted(Path(directory).glob("*.sqlite")):
+        db = sqlite3.connect(path.resolve().as_uri()+"?mode=ro",uri=True)
+        try:
+            if not db.execute("SELECT 1 FROM sqlite_master WHERE name='metadata' AND type='table'").fetchone():
+                continue
+            row = db.execute("SELECT value FROM metadata WHERE key='definition'").fetchone()
+            if row is not None:
+                saved = json.loads(row[0])
+                if not definitions_match(saved,definition):
+                    raise ValueError(f"{path.name} belongs to different settings/code/inputs. Use an empty RUNS_DIR.")
+                return saved
+        finally:
+            db.close()
+    return definition
+
+
+def prepare_archives(people, registry, directory, definition, stop=None):
+    """Only the coordinator switches journal mode and initializes archives."""
+    store = ResultStore(directory,definition,max_connections=1)
+    count, total = 0, len(people)*len(registry)
+    reported = time.monotonic()
+    print(f"Preparing {total} result archives before starting workers...",flush=True)
+    try:
+        for person in people:
+            for track in registry:
+                if stop is not None and stop.is_set():
+                    return
+                store.connection(person,track["name"])
+                count += 1
+                if time.monotonic()-reported >= 10:
+                    print(f"Prepared {count}/{total} archives",flush=True)
+                    reported = time.monotonic()
+    finally:
+        store.close()
+    print(f"Prepared {count}/{total} archives; starting workers.",flush=True)
 
 
 def read_result(path, composition, start, variant):

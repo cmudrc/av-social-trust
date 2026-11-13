@@ -1,0 +1,30 @@
+{
+  "description": "Unmodified source figures copied for the LaTeX results draft. Original conference-generating implementation provenance remains to be verified.",
+  "figures": [
+    {
+      "asset": "structure_min_accuracy.pdf",
+      "source": "/Users/aslan/Projects/idetc-ai-adoption-paper/figures/figure_structure_min_accuracy.pdf",
+      "sha256": "36ac6f478fbc6e530abbfa52964f2d5ae08eec3568beffcea4de8a9989c8a964"
+    },
+    {
+      "asset": "adopter_composition.pdf",
+      "source": "/Users/aslan/Projects/idetc-ai-adoption-paper/figures/figure_loud_share_grid.pdf",
+      "sha256": "a51662c114afad339a1a12203542332dec8f670e420628ef9c8129de222e4e9d"
+    },
+    {
+      "asset": "reduction_parity.pdf",
+      "source": "/Users/aslan/Projects/idetc-ai-adoption-paper/figures/validation_abm_to_fitted_ode/validation_abm_to_ode_parity_adoption.pdf",
+      "sha256": "cf2dcba993ce9e2f8e7725ae76ccde0b5dad88030fc1275cb8788dc4b8ba91dc"
+    },
+    {
+      "asset": "reduction_trajectories.pdf",
+      "source": "/Users/aslan/Projects/idetc-ai-adoption-paper/figures/abm_ode_two_examples.pdf",
+      "sha256": "bd93da29432809cf758185107f81d0e36b5111b6e66342030e04aa9a78e38f16"
+    },
+    {
+      "asset": "surrogate_model_selection.pdf",
+      "source": "/Users/aslan/Projects/idetc-ai-adoption-paper/figures/surrogate_model_selection.pdf",
+      "sha256": "fb932c80bb9d605e001d59e62d428c74e0169635815733eb371f6581af38bb5a"
+    }
+  ]
+}

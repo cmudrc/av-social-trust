@@ -102,8 +102,10 @@ def initial_state(composition, start, settings, bank):
     rates = np.eye(n)*settings.self_learning_rate
     for i, person in enumerate(agents):
         trust[i, i] = bank[person][start]["self_trust"]
-    for passenger in range(1, n):
-        for i, j in ((0, passenger), (passenger, 0)):
+    for i in range(n):
+        for j in range(n):
+            if i == j or (settings.network_topology == "star" and i != 0 and j != 0):
+                continue
             parts = ("interpersonal", *agents, agents[i], agents[j])
             trust[i, j] = grid_value(settings, parts, start)
             seed = stable_seed(settings.initial_seed, "alpha", *agents, agents[i], agents[j])

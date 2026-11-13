@@ -26,7 +26,8 @@ from experiment import config
 from experiment.design import compositions,digest,initial_state,personal_starts,total_runs
 from experiment.model import run_model
 from experiment.participants import load_participants
-from experiment.results import ResultStore,check_existing,completed,checkpoint_results
+from experiment.results import (ResultStore,check_existing,completed,checkpoint_results,
+                                prepare_archives,resume_definition)
 from experiment.tracks.generate_tracks import file_hash,load_tracks
 
 WORKER = None
@@ -126,7 +127,9 @@ def run_metadata(composition,track,start,variant,initial,settings,arrays):
         driver=composition.driver,passengers=list(composition.passengers),composition_id=composition.identifier,
         track=track["name"],track_difficulty=track["difficulty"],track_replicate=track["replicate"],
         start=start,cognitive_start=start//settings.social_starts,social_start=start%settings.social_starts,
-        variant=variant,state_names=["automation_trust","perceived_risk","workload"],features=features,
+        variant=variant,network_topology=settings.network_topology,
+        normative_source="unweighted_mean_private_decision_votes",alpha_fixed=True,
+        state_names=["automation_trust","perceived_risk","workload"],features=features,
         summary=dict(automation_fraction=float(automation.mean()),switching_count=int(np.count_nonzero(automation[1:]!=automation[:-1])),
                      driver_clipping_fraction=float(arrays["clipped"][:,0].mean())))
 
@@ -173,6 +176,7 @@ def run(settings=None,directory=None,workers=None):
         if saved==planned:
             checkpoint_results(directory)
             return
+        definition = resume_definition(directory,definition)
         context = multiprocessing.get_context("spawn")
         stop = context.Event()
         handlers,environment = {},{}
@@ -187,6 +191,7 @@ def run(settings=None,directory=None,workers=None):
             for name in ("OPENBLAS_NUM_THREADS","OMP_NUM_THREADS","MKL_NUM_THREADS","VECLIB_MAXIMUM_THREADS","BLIS_NUM_THREADS"):
                 environment[name] = os.environ.get(name)
                 os.environ[name] = "1"
+            prepare_archives(people,registry,directory,definition,stop)
             with ProcessPoolExecutor(max_workers=workers,mp_context=context,initializer=worker_initialize,
                     initargs=(participants,settings,tracks,bank,directory,definition,stop,os.getpid())) as pool:
                 reported = time.monotonic()

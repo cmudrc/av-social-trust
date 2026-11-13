@@ -1,4 +1,4 @@
-"""No participant simulations or shared-track generation are run by these tests."""
+"""Use synthetic fixtures only; never run exported participants or shared-track generation."""
 
 from dataclasses import asdict,replace
 import io
@@ -16,13 +16,57 @@ from experiment.config import Settings
 from experiment.design import Composition,compositions,initial_state,personal_starts,total_runs
 from experiment.results import ResultStore,archive_path,check_existing,completed,read_result,checkpoint_results
 from experiment.runner import StopWhenParentExits,keep_awake,run_metadata,tasks,worker_task
-from experiment.analysis.compare_modes import extract
-from experiment.analysis.common import similarity
+from experiment.analysis.compare_modes.run import extract
+from experiment.analysis.shared.common import similarity
+from experiment.model import run_model
+from av_social_trust.trust import trust_step
 from experiment.tracks.generate_tracks import generate,load_tracks,track_specs
 from av_social_trust.situation import Situation
 
 
 class PipelineTests(unittest.TestCase):
+    def test_network_topologies_and_matched_directed_parameters(self):
+        people=("P01","P02","P03")
+        bank=personal_starts(people,self.settings)
+        car=Composition("P01",("P02","P03"),1)
+        star=initial_state(car,0,replace(self.settings,network_topology="star"),bank)
+        full=initial_state(car,0,replace(self.settings,network_topology="fully_connected"),bank)
+        np.testing.assert_array_equal(star["mask"],[[True,True,True],[True,True,False],[True,False,True]])
+        self.assertTrue(full["mask"].all())
+        for key in ("trust","alpha","rates"):
+            np.testing.assert_array_equal(star[key][star["mask"]],full[key][star["mask"]])
+        for i,j in ((1,2),(2,1)):
+            self.assertIn(full["trust"][i,j],self.settings.trust_values)
+            self.assertTrue(0<=full["alpha"][i,j]<1)
+        repeated=initial_state(car,0,replace(self.settings,network_topology="fully_connected"),bank)
+        np.testing.assert_array_equal(full["trust"],repeated["trust"])
+        np.testing.assert_array_equal(full["alpha"],repeated["alpha"])
+        solo=initial_state(Composition("P01",(),0),0,replace(self.settings,network_topology="fully_connected"),bank)
+        np.testing.assert_array_equal(solo["mask"],[[True]])
+        with self.assertRaisesRegex(ValueError,"Network topology"):
+            replace(self.settings,network_topology="unsupported")
+
+    def test_both_modes_update_trust_from_private_votes_and_save_fixed_alpha(self):
+        settings=replace(self.settings,steps=1)
+        person=dict(state_indices=np.arange(3),A=np.eye(3),B=np.zeros(3),c=np.zeros(3),
+                    class_names=[0,1],tree=dict(feature_index=0,threshold=0.5,
+                        left=dict(**{"class":0},probability=[1.,0.]),
+                        right=dict(**{"class":1},probability=[0.,1.])))
+        initial=dict(agents=["P01","P02"],cognition=np.array([[.1,.2,.3],[.9,.2,.3]]),
+                     trust=np.array([[.1,.9],[.9,.1]]),rates=np.full((2,2),.1),
+                     alpha=np.array([[0.,.25],[.75,0.]]),mask=np.ones((2,2),dtype=bool))
+        original_alpha=initial["alpha"].copy()
+        expected=trust_step([-1.,1.],initial["trust"],initial["rates"],original_alpha,initial["mask"])
+        for variant in ("decision","cognition"):
+            arrays=run_model(initial,{"P01":person,"P02":person},settings,variant,[Situation(0,True)])
+            # Social influence reverses both private votes in this fixture.
+            np.testing.assert_array_equal(arrays["private_decisions"][0],[False,True])
+            np.testing.assert_array_equal(arrays["final_decisions"][0],[True,False])
+            np.testing.assert_allclose(arrays["trust"][0],expected)
+            np.testing.assert_array_equal(arrays["alpha"],original_alpha)
+            self.assertNotIn("initial_alpha",arrays)
+        np.testing.assert_array_equal(initial["alpha"],original_alpha)
+
     def test_each_difficulty_uses_three_persistence_levels(self):
         settings=Settings(steps=10,track_replicates=1)
         directory=Path(self.temp.name)/"tracks"

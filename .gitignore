@@ -224,5 +224,6 @@ paper/
 experiment/data/
 experiment/runs/
 experiment/analysis/results/
+experiment/analysis/*/results/
 experiment/.*.lock
 .DS_Store

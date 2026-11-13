@@ -24,6 +24,7 @@ AUTOMATION_AVAILABILITY = 1.0
 TRACK_SEED = 7301
 
 TRUST_VALUES = (0.01, 0.2, 0.4, 0.6, 0.8, 0.99)
+NETWORK_TOPOLOGY = "fully_connected"  # "star" or "fully_connected".
 INTERPERSONAL_LEARNING_RATE = 0.1
 SELF_LEARNING_RATE = 0.1
 DISCUSSION_ROUNDS = 1
@@ -48,6 +49,7 @@ class Settings:
     complexity_tolerance: float = COMPLEXITY_TOLERANCE
     automation_availability: float = AUTOMATION_AVAILABILITY
     trust_values: tuple = TRUST_VALUES
+    network_topology: str = NETWORK_TOPOLOGY
     interpersonal_learning_rate: float = INTERPERSONAL_LEARNING_RATE
     self_learning_rate: float = SELF_LEARNING_RATE
     discussion_rounds: int = DISCUSSION_ROUNDS
@@ -72,6 +74,8 @@ class Settings:
                 raise ValueError(f"{name} must be in [0, 1].")
         if not self.trust_values or any(not 0 < value < 1 for value in self.trust_values):
             raise ValueError("Trust values must be strictly between 0 and 1.")
+        if self.network_topology not in ("star", "fully_connected"):
+            raise ValueError("Network topology must be 'star' or 'fully_connected'.")
         names = [name for name, _ in self.track_difficulties]
         if not names or len(set(names)) != len(names) or any(not 0 <= p <= 1 for _, p in self.track_difficulties):
             raise ValueError("Track difficulty names must be unique, with probabilities in [0, 1].")

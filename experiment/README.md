@@ -1,7 +1,7 @@
 # Participant experiment
 
 This folder replaces the layered `paper/experiments` pipeline. Its code is public;
-`data/`, `runs/` and `analysis/results/` are gitignored. The private data copy is
+`data/`, `runs/` and each analysis question's `results/` subfolder are gitignored. The private data copy is
 untouched. The new code does not import anything from `paper/`, reuse the old
 study results, or create `study_<hash>` directories. Old studies remain where they
 were; this runner starts fresh in the initially empty `experiment/runs/`.
@@ -42,6 +42,9 @@ Matching solo baselines run first and are reused. Total: **9,272,016 models**.
 `CPU_CORES_FREE=2` leaves two logical cores free; set it to `1` if preferred.
 At least one worker is used. Workers use one BLAS thread each and a bounded
 task queue. `TASK_RUNS` changes scheduling overhead, not checkpoint granularity.
+The coordinator prepares every driver/track archive in WAL mode before workers
+start, so workers do not compete to change journal mode. Temporary locks during
+initialization are retried for up to 60 seconds.
 
 `KEEP_AWAKE=True` starts macOS `caffeinate` **from Python**, including when
 launched by VS Code. No terminal wrapper is required. Leave the laptop open,
@@ -61,7 +64,7 @@ experiment/
     runs/P01_low_p0_0.sqlite              # completed models only
     runs/P01_normal_p0_0.sqlite
     ...                                 # up to 26 × 9 = 234 result archives
-    analysis/results/                    # ignored, derived analyses
+    analysis/<question>/results/         # ignored, derived analyses
 ```
 
 Each `results` row represents **one complete model**. Its primary key is
@@ -99,6 +102,14 @@ does no computation. The final model keys and trajectories are the same regardle
 of stop/restart count; SQLite's internal byte/page layout need not be identical.
 Stopping between the two influence modes preserves whichever model completed.
 
+For large existing archives, resume can pause after the initial `Models:` line
+while checking completed models, before workers start. Run
+`repair_resume_index.py` once to add a small completion lookup index to every
+existing archive. It avoids reading the large trajectory table during this scan.
+The repair preserves model rows, metadata and resume compatibility, and can be
+repeated safely. SQLite coordinates it with an active runner. New result
+directories can also use this repair after archives have been created.
+
 Changing CPU allocation or `KEEP_AWAKE` does not invalidate results. Changing
 scientific settings, fitted data, shared tracks, relevant code or package versions
 requires an empty `RUNS_DIR`. The runner raises an error rather than mixing them
@@ -107,19 +118,32 @@ remove old results yourself if you want to restart. Regenerate tracks after chan
 `STEPS` or track-generation settings. Generating the same settings yields the same
 CSV contents and can be done without invalidating results.
 
+The reviewed October 10, 2026 SQLite initialization fix is an explicit exception
+for two exact runner/storage source revisions listed in `runtime_compatibility.py`.
+It changes archive initialization and lookup indexes, not model calculations.
+Existing archives retain their original definitions and remain resumable. All
+scientific settings, data, tracks, environment versions and other source hashes
+must still match; unrecognized runner/storage edits remain incompatible.
+
 ## Model conventions
 
 Each participant uses its own fitted affine cognitive coefficients and its own
 decision tree. Solo: private update → tree. Cognition influence: private update →
 social cognition → tree, with that cognition fed into the next cycle. Decision
 influence: private update → tree's binary vote → social vote, with ties selecting
-manual. These preserve the earlier experiment's conventions, including its
-different trust-update signals between modes.
+manual. Both modes update trust from the private binary decision votes, before
+social influence. The normative source is the unweighted mean of those votes
+over every occupant, including the driver. Each directed connection has a fixed,
+randomly sampled homophilic–normative tradeoff, saved as `alpha`; it does not
+change during the run. The two modes' private votes can diverge in later cycles
+because their cognitive states evolve differently.
 
 Private cognitive predictions are clipped to [0,1], with raw predictions and
 clipping flags retained. Unselected cognitive dimensions carry through the private
-update and participate in social mixing. The driver/passenger star, learning rates
-and discussion rounds are configured in `config.py`. Transferring driver fits to
+update and participate in social mixing. `NETWORK_TOPOLOGY` in `config.py` selects
+`"star"` (driver–passenger links only) or `"fully_connected"` (all occupant pairs).
+Both directions have independently sampled trust and fixed `alpha` values.
+Learning rates and discussion rounds are configured in `config.py`. Transferring driver fits to
 passengers is an assumption, not a validation against actual passenger behavior.
 
 Track generation conditions persistent binary Markov draws on realized complexity:
@@ -150,17 +174,28 @@ Use metadata's track name to join the one shared CSV for the external situation.
 
 ## Separate analysis
 
-Run these files individually using VS Code:
+Each analysis topic has its own folder, `run.py` entry script and README that
+states its question. See [the analysis guide](analysis/README.md) for the full list.
+To run selected questions in sequence, edit the calls in `analysis/main.py`,
+comment out the ones to skip, and run that file.
+Run the scripts individually using VS Code:
 
-- `analysis/inventory.py`: completed counts by mode.
-- `analysis/baseline_quality.py`: solo on/off regimes and clipping.
-- `analysis/compare_modes.py`: incrementally extract complete paired comparisons.
-- `analysis/passenger_count_effects.py`, `network_effects.py`,
-  `driver_state_effects.py`, `track_effects.py`, `social_importance.py`: separate
-  descriptive analyses of those comparisons.
+- `analysis/inventory/run.py`: which models have finished?
+- `analysis/baseline_quality/run.py`: how do drivers behave alone?
+- `analysis/compare_modes/run.py`: prepare matched comparisons for the questions below.
+- `analysis/passenger_count_effects/run.py`: how do changes vary with passenger count?
+- `analysis/network_effects/run.py`: how do changes vary with social trust and weights?
+- `analysis/driver_state_effects/run.py`: how do changes vary with the driver's starting state?
+- `analysis/track_effects/run.py`: how do changes vary with track difficulty and persistence?
+- `analysis/social_importance/run.py`: how large and persistent are social-influence changes?
 
-These scripts open model archives read-only and write derived files under the
-ignored `analysis/results/`. Repeat extraction after more models finish. Neither
+Run `compare_modes/run.py` before the five comparison-based analyses. Shared
+calculation helpers live in `analysis/shared/`.
+
+These scripts open model archives read-only, save derived files in each question's
+ignored `results/` subfolder, and update the question's README with a latest-results
+section. Comparison extraction shows progress and checkpoints batches in
+`analysis/compare_modes/results/comparisons.sqlite`. Repeat extraction after more models finish. Neither
 missing influence partners nor missing baselines count as a complete comparison.
 Parameter reports describe associations; independently sampled starts do not
 establish an isolated causal effect for every parameter.
@@ -168,5 +203,5 @@ establish an isolated causal effect for every parameter.
 Checks using fabricated trajectories, without running the experiment:
 
 ```sh
-python -m unittest experiment.tests.test_pipeline -v
+python -m unittest experiment.tests.test_pipeline experiment.tests.test_sqlite_runtime experiment.tests.test_analysis_outputs -v
 ```
